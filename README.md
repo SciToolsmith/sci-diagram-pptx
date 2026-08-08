@@ -61,7 +61,7 @@ SciDiagram PPTX 是由 **SciToolsmith** 维护的 Codex Agent Skill。它不会�
   <p><code>研究框架</code> · <code>多层嵌套</code> · <code>中文密集排版</code></p>
   <a href="docs/cases/global-innovation-chain-framework.png"><img src="docs/cases/global-innovation-chain-framework.png" width="560" alt="全球创新产业链研究框架的原生可编辑 PowerPoint 重建预览，包含研究框架、研究内容和研究方法三栏"></a>
   <p><strong>99 个原生形状 / 文本对象 · 23 条连接线 · 0 张图片</strong></p>
-  <p><a href="docs/cases/global-innovation-chain-framework.png">查看大图</a> · <a href="examples/cases/global-innovation-chain-framework-editable.pptx?raw=1"><strong>下载可编辑 PPTX</strong></a></p>
+  <p><a href="docs/cases/global-innovation-chain-framework.png">查看大图</a> · <a href="examples/cases/global-innovation-chain-framework-editable.pptx"><strong>下载可编辑 PPTX</strong></a></p>
 </div>
 
 <table role="presentation">
@@ -82,8 +82,8 @@ SciDiagram PPTX 是由 **SciToolsmith** 维护的 Codex Agent Skill。它不会�
     <td align="center"><strong>45 个原生形状 / 文本对象 · 11 条连接线 · 0 张图片</strong></td>
   </tr>
   <tr>
-    <td align="center"><a href="docs/cases/load-cycle-model.png">查看大图</a> · <a href="examples/cases/load-cycle-model-editable.pptx?raw=1"><strong>下载可编辑 PPTX</strong></a></td>
-    <td align="center"><a href="docs/cases/adaptive-fir-mode-decomposition.png">查看大图</a> · <a href="examples/cases/adaptive-fir-mode-decomposition-flowchart-editable.pptx?raw=1"><strong>下载可编辑 PPTX</strong></a></td>
+    <td align="center"><a href="docs/cases/load-cycle-model.png">查看大图</a> · <a href="examples/cases/load-cycle-model-editable.pptx"><strong>下载可编辑 PPTX</strong></a></td>
+    <td align="center"><a href="docs/cases/adaptive-fir-mode-decomposition.png">查看大图</a> · <a href="examples/cases/adaptive-fir-mode-decomposition-flowchart-editable.pptx"><strong>下载可编辑 PPTX</strong></a></td>
   </tr>
 </table>
 
@@ -453,9 +453,9 @@ Then invoke it with `$sci-diagram-pptx`.
 
 ### Featured editable examples
 
-- [Global innovation-chain research framework](examples/cases/global-innovation-chain-framework-editable.pptx?raw=1)
-- [Load-cycle mechanism model](examples/cases/load-cycle-model-editable.pptx?raw=1)
-- [Adaptive FIR mode-decomposition flowchart](examples/cases/adaptive-fir-mode-decomposition-flowchart-editable.pptx?raw=1)
+- [Global innovation-chain research framework](examples/cases/global-innovation-chain-framework-editable.pptx)
+- [Load-cycle mechanism model](examples/cases/load-cycle-model-editable.pptx)
+- [Adaptive FIR mode-decomposition flowchart](examples/cases/adaptive-fir-mode-decomposition-flowchart-editable.pptx)
 
 Each public case contains only the native editable reconstruction slide; task reference images and local notes are intentionally excluded from the downloadable files.
 
