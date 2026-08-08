@@ -1,2 +1,2 @@
-Pillow>=12,<13
+Pillow>=10.4,<13
 PyYAML>=6,<7
