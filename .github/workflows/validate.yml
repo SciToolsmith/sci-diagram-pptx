@@ -38,7 +38,6 @@ jobs:
       - name: Validate metadata and package boundary
         run: |
           python - <<'PY'
-          import json
           from pathlib import Path
           import yaml
 
@@ -68,11 +67,8 @@ jobs:
               or path.suffix in {".pyc", ".pyo"}
           ]
           assert not forbidden, f"Platform or bytecode junk found: {forbidden}"
-
-          schema = json.loads((skill / "scripts" / "scene-plan.schema.json").read_text(encoding="utf-8"))
-          example = json.loads((skill / "references" / "scene-plan.example.json").read_text(encoding="utf-8"))
-          assert schema["$id"].startswith("https://raw.githubusercontent.com/SciToolsmith/")
-          assert example["kind"] == "sci-diagram-pptx-scene-plan"
+          scripts = {path.name for path in (skill / "scripts").glob("*.py")}
+          assert scripts == {"check_pptx.py", "panel_crop.py"}, scripts
           print("metadata and package boundary: valid")
           PY
 
@@ -103,23 +99,17 @@ jobs:
           python -m compileall -q skills/sci-diagram-pptx/scripts
           python -m compileall -q tests
 
-      - name: Run preflight and lineage regressions
-        run: python -B tests/test_preflight.py --expect-count 0
+      - name: Run panel crop regression
+        run: python -B tests/test_panel_crop.py
 
-      - name: Run OOXML, visual, wrapper, and aggregate regressions
-        run: python -B tests/test_audit.py -q
+      - name: Run lightweight PPTX checker regressions
+        run: python -B tests/test_check.py
 
       - name: Smoke every documented CLI
         run: |
           for script in \
-            source_preflight.py \
             panel_crop.py \
-            validate_scene_plan.py \
-            render_evidence.py \
-            compare_render.py \
-            overflow_check.py \
-            audit_pptx.py \
-            qa_gate.py
+            check_pptx.py
           do
             python -B "skills/sci-diagram-pptx/scripts/$script" --help >/dev/null
           done

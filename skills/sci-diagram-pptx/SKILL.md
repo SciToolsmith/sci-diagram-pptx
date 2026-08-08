@@ -1,300 +1,118 @@
 ---
 name: sci-diagram-pptx
-description: Reconstruct or repair user-provided scientific or academic schematic diagrams as high-fidelity, native editable PowerPoint (.pptx) files made primarily from PowerPoint shapes, text, and connectors. Use for 复刻、还原、临摹、修复或审查科研框架图、技术路线图、科研流程图、机制图、算法流程图、科研系统结构图、学术概念模型、结构化科研信息图，以及包含数学符号或公式的学术图示. Do not use for quantitative data visualizations or statistical plots regardless of authoring tool, especially visuals whose primary meaning is encoded by axes, scales, legends, or data-driven geometry, such as bar, line, scatter, violin, or heatmap plots; general business workflows; organization charts; commercial infographics; ordinary deck creation; redesign; OCR-only extraction; photo editing; or simple image placement.
+description: Reconstruct, repair, or inspect user-provided scientific and academic schematic diagrams as visually faithful, native editable PowerPoint (.pptx) files built primarily from PowerPoint shapes, text, and connectors. Use for 复刻、还原、临摹或修复科研框架图、技术路线图、科研流程图、机制图、算法流程图、科研系统结构图、学术概念模型、结构化科研信息图，以及包含数学符号或公式的学术图示. Do not use for quantitative data visualizations or statistical plots whose meaning is encoded by axes, scales, legends, or data-driven geometry; general business diagrams; organization charts; ordinary deck design; OCR-only extraction; or simple image placement.
 ---
 
 # SciDiagram PPTX
 
-Rebuild a scientific or academic schematic diagram as editable PowerPoint objects. Treat the source as the visual and content authority. Reproduce; do not redesign.
+Rebuild the supplied scientific schematic as a practical, editable PowerPoint. Reproduce the source; do not redesign it unless the user explicitly asks for redesign.
 
-## Confirm that the source is an eligible diagram
+## Preserve what matters
 
-Use this skill when meaning is carried primarily by boxes or nodes, arrows or connectors, labels, mathematical expressions, nested regions, symbolic illustrations, topology, or other explicit relationships. Typical sources include research frameworks, technical routes, process and mechanism diagrams, algorithm flows, system architectures, conceptual models, structured scientific infographics, and formula-bearing academic schematics.
+Apply strict fidelity to:
 
-Do not use this skill when the primary evidence is encoded by axes, quantitative marks, scales, legends, or data-driven geometry. Bar, line, scatter, bubble, violin, box, density, forest, volcano, heatmap, and similar statistical plots belong in a scientific plotting workflow, even when they appear in a paper and even when Python or R produced them.
+1. visible wording, symbols, formulas, and scientific meaning;
+2. nodes, regions, nesting, reading order, and connector topology;
+3. native editability of the diagram's main structure;
+4. clipping, overlap, missing content, and file integrity.
 
-For a mixed multi-panel figure, reconstruct only the schematic panel explicitly selected by the user. Do not rebuild adjacent data-plot panels under this workflow. Return `NEEDS_TARGET_SELECTION` when the intended panel is unclear.
+Treat small differences in antialiasing, kerning, exact color, line weight, corner radius, arrowhead proportions, or local spacing as cosmetic when they do not affect readability or meaning. Do not spend repeated passes chasing pixel identity.
 
-## Apply the fidelity contract
+## Confirm the target
 
-Preserve in this order:
+Use this skill when meaning is carried primarily by boxes, labels, mathematical expressions, nested regions, arrows, or explicit relationships. Do not use it for bar, line, scatter, violin, box, density, forest, volcano, heatmap, or similar statistical plots.
 
-1. source identity and visible content;
-2. text, mathematical meaning, and semantic topology;
-3. native editability and object relationships;
-4. geometry, layout, and reading order;
-5. typography, color, stroke, and pixel-level appearance.
+For a mixed multi-panel figure, reconstruct only the schematic panel explicitly selected by the user. Ask for target selection when the intended panel is unclear. Ask for content confirmation only when an unreadable character, formula, or arrow direction could change meaning; do not interrupt for ordinary styling uncertainty.
 
-Never improve wording, hierarchy, colors, spacing, or connections unless the user explicitly changes the task from reproduction to redesign.
+Never silently rewrite wording, improve hierarchy, recolor the figure, or reverse a relationship because another design appears clearer.
 
-Use native PowerPoint text, shapes, connectors, fills, strokes, and groups whenever the source element can be represented honestly. Never claim native editability for a bitmap, imported SVG, path-converted text, OLE object, or fragmented image tiles.
+## Use the presentation runtime
 
-## Route the request
+Load and follow the installed `Presentations` skill for every PPTX build, repair, render, or inspection. Apply these reconstruction-specific rules:
 
-Choose exactly one route:
+- use `@oai/artifact-tool` from a JavaScript ES module for PPTX authoring;
+- use Python only for image inspection, cropping, and package checks;
+- match the source canvas, density, typography, and orientation instead of applying a generic slide template;
+- use native PowerPoint shapes, text, connectors, fills, and strokes for the editable reconstruction;
+- do not substitute image generation, Graphviz, imported SVG, outlined text, or source-image tiles for native reconstruction;
+- read current Artifact Tool documentation before using unfamiliar APIs, but do not probe standard documented shapes and text again.
 
-- **Create**: an eligible scientific or academic diagram image exists and no editable reconstruction exists.
-- **Repair**: the locked source image and an existing PPTX both exist; preserve correct native objects and repair only mismatches.
-- **Audit**: the locked source image and an existing PPTX both exist; inspect the reconstruction without changing it.
-- **Redesign**: stop using this skill and route to the general presentation workflow.
+Resolve the current workspace dependencies and use the bundled Python executable reported by the workspace. Keep temporary code, renders, and check reports in a task-specific build directory. Put only the final PPTX in the user destination and never overwrite an existing file silently.
 
-Treat PNG, JPEG, TIFF, WebP, or a rasterized PDF page as source images only after the eligibility check passes. For a PDF, first confirm the exact page and target panel, then rasterize it at inspection quality without altering content.
+## Follow one reconstruction workflow
 
-If multiple images are present and the target is not explicit, return `NEEDS_TARGET_SELECTION`. Do not guess from recency, filename, or visual prominence.
+### 1. Inspect and map the source
 
-Return `NEEDS_SOURCE` when an Audit or Repair request lacks the authoritative source image or exact selected panel crop. A source-less package inspection can use the general presentation workflow, but it cannot establish reconstruction fidelity under this skill.
+Inspect the selected image at original resolution. Identify its major regions, nodes, visible text, connectors, decorative arrows, repeated styles, and isolated raster content.
 
-## Work with the presentation runtime
+Create a lightweight object map directly in the build code or its data constants. Record only what is needed to build: stable IDs, text, approximate bounds, object type, and source/target relationships. Do not create a separate Scene Plan, confidence ledger, hash chain, or approval manifest.
 
-Use the installed `Presentations` skill alongside this skill for every PPTX create, repair, render, or inspection task. Apply these overrides for reconstruction:
-
-- Treat the source image as explicit visual direction; do not load a default design template.
-- Match source typography and density; generic minimum font-size and narrative-layout rules do not override the source.
-- Use native PowerPoint shapes for the reconstruction even when a general deck workflow would prefer generated imagery.
-- Do not use image generation, image search, Graphviz, or SVG as a substitute for source-faithful native reconstruction.
-- Implement PPTX with `@oai/artifact-tool` from a JavaScript ES module. Do not use `python-pptx` to create or edit the deliverable.
-- Use Python only for source inspection, package auditing, comparison, and QA.
-
-Before coding, read the current Artifact Tool quick start and API documentation supplied by the `Presentations` skill. Probe undocumented capabilities before relying on them.
-
-Load the current workspace dependencies and use the reported bundled Python executable for every helper and QA command. Do not assume the shell's active Conda, Homebrew, or system Python contains the Presentations dependencies, and do not hardcode a versioned runtime path.
-
-Use distinct absolute paths:
-
-```text
-SCI_DIAGRAM_SKILL_DIR=<absolute path to this skill>
-PRESENTATIONS_SKILL_DIR=<absolute path to the Presentations skill>
-SCI_DIAGRAM_PYTHON=<workspace-dependency Python executable>
-BUILD_DIR=<writable task-specific temporary directory>
-SOURCE_IMAGE=<locked absolute source path>
-PARENT_SOURCE_IMAGE=<optional locked parent path for a mixed figure>
-FINAL_PPTX=<absolute final output path>
-```
-
-Keep manifests, plans, rendered slides, diffs, and reports under `BUILD_DIR`. Place only the final deliverable at `FINAL_PPTX`. Never overwrite an existing output silently.
-
-## Run the reconstruction workflow
-
-### 1. Lock and inspect the source
-
-Resolve the exact image, schematic-panel crop, and intended canvas. For a mixed figure, first record the user's explicit panel selection and create a deterministic EXIF-oriented crop without rescaling or retouching:
+When the user explicitly selects a panel from a larger image, crop only that panel without resizing or retouching. The bundled helper is available when exact pixel bounds are useful:
 
 ```bash
 "$SCI_DIAGRAM_PYTHON" "$SCI_DIAGRAM_SKILL_DIR/scripts/panel_crop.py" \
-  "$PARENT_SOURCE_IMAGE" \
-  --bbox <x> <y> <width> <height> \
-  --label "<panel label or description>" \
-  --selected-by "<user identity or role>" \
-  --selected-at "<timezone-aware ISO-8601 timestamp>" \
-  --evidence "<explicit selection evidence>" \
-  --output-image "$BUILD_DIR/panel-source.png" \
-  --output-manifest "$BUILD_DIR/panel-crop-manifest.json"
+  "$PARENT_IMAGE" --bbox <x> <y> <width> <height> \
+  --output "$BUILD_DIR/panel.png"
 ```
 
-Treat the resulting crop as `SOURCE_IMAGE`. Do not invent panel-selection provenance or manually replace the generated crop. For either an independent diagram or a locked crop, record its SHA-256, dimensions, format, orientation, alpha state, and aspect ratio:
+### 2. Build with native semantic units
+
+Read [native-object-policy.md](references/native-object-policy.md). Use one coherent native object per meaningful unit whenever practical: a labeled node as one shape with text, a relationship as one connector, and a standard arrow as one shape.
+
+Preserve the source aspect ratio and derive placement from one consistent source-to-slide transform. Keep connectors behind nodes where appropriate and preserve source direction, endpoint, dash style, crossings, and z-order.
+
+Default to two slides using the same canvas:
+
+1. Slide 1 — native editable reconstruction;
+2. Slide 2 — the unchanged source image or explicitly selected panel for reference.
+
+Honor an explicit user request for a one-slide deliverable. Slide 1 must never be a full-slide source bitmap, hidden tracing image, or image-tile mosaic.
+
+For formulas, true vertical text, compound freeforms, gradients, or unusual connectors, read [math-and-fonts.md](references/math-and-fonts.md) and, only if support is uncertain, [capability-matrix.md](references/capability-matrix.md). Use one focused capability probe, not a full evidence workflow.
+
+Use a close native approximation without pausing when the difference is cosmetic. Ask first when a fallback changes scientific meaning, formula content, arrow topology, or converts a substantial meaning-bearing region to raster.
+
+### 3. Render and review
+
+Render the exported PPTX through the current `Presentations` workflow. Inspect the reconstruction beside the source at normal size, then enlarge dense text, formulas, and connector crossings.
+
+Fix these blocking defects:
+
+- guessed or incorrect text, symbols, formulas, or arrow directions;
+- missing major nodes, regions, labels, or relationships;
+- wrong topology, nesting, reading order, or meaning-bearing line style;
+- visible clipping, overflow, serious overlap, or off-canvas content;
+- flattened or falsely editable main structure;
+- corrupt export or missing native content.
+
+If blockers exist, repair them together in one focused pass and render once more. After the second render, continue only for a named blocking defect. Do not rebuild again merely to improve a pixel-difference score.
+
+### 4. Run the lightweight package check
+
+Read [quality-checklist.md](references/quality-checklist.md), then run:
 
 ```bash
-"$SCI_DIAGRAM_PYTHON" "$SCI_DIAGRAM_SKILL_DIR/scripts/source_preflight.py" \
-  "$SOURCE_IMAGE" \
-  --output "$BUILD_DIR/source-manifest.json"
+"$SCI_DIAGRAM_PYTHON" "$SCI_DIAGRAM_SKILL_DIR/scripts/check_pptx.py" \
+  "$FINAL_PPTX" --source "$SOURCE_IMAGE" \
+  --output "$BUILD_DIR/check.json"
 ```
 
-Inspect the image at original resolution. Divide it into content regions and identify:
+The check must confirm that the package opens, contains a usable native reconstruction, avoids whole-page raster simulation, has no macro/OLE/external-media shortcuts, and—when a reference slide exists—uses the supplied source without an additional crop. Fix any reported hard failure. Treat its warnings as prompts for judgment, not automatic rejection.
 
-- nodes, containers, labels, connectors, decorations, and isolated raster content;
-- text runs, mathematical expressions, line styles, colors, z-order, and groups;
-- ambiguous characters, endpoints, crops, or hidden relationships.
+### 5. Deliver
 
-Do not infer unreadable text, formulas, arrow directions, or off-canvas content. Return `NEEDS_CONTENT_CONFIRMATION` when ambiguity could change meaning.
+Deliver when scientific content, topology, native editability, readability, and file integrity are sound. Remaining cosmetic differences are not blockers.
 
-### 2. Create the reconstruction contract
+Return the final PPTX and a short note covering:
 
-Read [reconstruction-contract.md](references/reconstruction-contract.md), the bundled [scene-plan schema](scripts/scene-plan.schema.json), and the compact [scene-plan example](references/scene-plan.example.json). Write `scene-plan.json` under `BUILD_DIR` with normalized source and slide coordinates, stable object and connection IDs, exact visible text, typed style and topology, expected OOXML kinds, confidence, and fallback decisions. Replace every example value with measured source evidence.
+- that the file was rendered and structurally checked;
+- any material native approximation or local raster element;
+- any remaining compatibility limitation worth the user's attention.
 
-Validate it before generating any PPTX:
+Do not deliver build scripts, reports, renders, or intermediate files unless requested.
 
-```bash
-"$SCI_DIAGRAM_PYTHON" "$SCI_DIAGRAM_SKILL_DIR/scripts/validate_scene_plan.py" \
-  "$BUILD_DIR/scene-plan.json" \
-  --source-manifest "$BUILD_DIR/source-manifest.json" \
-  --output "$BUILD_DIR/scene-plan-validation.json"
-```
+## Handle an existing PPTX naturally
 
-Do not continue while the validator reports a hard failure.
+When an editable PPTX is supplied, preserve correct native objects and repair only the mismatches against the authoritative source. Keep the original file untouched and write a new output. When the user asks only for inspection, do not modify the file; render it, run the same lightweight check, and report the meaningful discrepancies.
 
-For a scene plan that declares parent/panel lineage, add `--panel-manifest "$BUILD_DIR/panel-crop-manifest.json"` to the validation command. Omitting or mismatching the deterministic crop manifest is a hard failure.
-
-### 3. Pass the capability gate
-
-Read [capability-matrix.md](references/capability-matrix.md) when the source contains formulas, vertical text, curved freeforms, deep groups, unusual arrows, gradients, photos, textures, or other nontrivial elements.
-
-Classify each object:
-
-- `native-exact`: supported without semantic or structural compromise;
-- `native-approximation`: editable approximation that preserves meaning;
-- `isolated-raster`: inherently raster content retained as one local image;
-- `unsupported`: cannot meet the requested native-editability contract.
-
-Require explicit user approval before using `native-approximation` for meaning-bearing content or any `isolated-raster` object. Return `NEEDS_FALLBACK_APPROVAL` or `UNSUPPORTED_NATIVE_REQUIREMENT` instead of silently degrading.
-
-For text and formulas, read [math-and-fonts.md](references/math-and-fonts.md). Do not promise Office Math unless the generated package contains a verified native equation object and the target runtime can round-trip it safely.
-
-### 4. Build from the scene plan
-
-Read [native-object-policy.md](references/native-object-policy.md). Generate a task-specific `.mjs` file under `BUILD_DIR` and build from `scene-plan.json`.
-
-Use these implementation rules:
-
-- derive every coordinate from one source-pixel-to-slide transform;
-- name objects deterministically, such as `node_001`, `edge_001`, `text_001`, and `eq_001`;
-- create semantic connectors before nodes so edges remain behind labels and boxes;
-- put text inside its owning shape when that preserves layout and editing quality;
-- keep continuous text in coherent runs rather than one object per character;
-- preserve source z-order and distinguish semantic connectors from decorative arrows;
-- add isolated raster objects only when approved and never use source-image tiles to simulate editability;
-- keep slide 1 free of the source image, hidden tracing images, full-slide transparent objects, and artificial page-sized background shapes;
-- place the unchanged selected source, or the locked exact panel crop, on slide 2 using contain/center with no further crop;
-- use identical slide size for both slides and match the locked source or panel-crop aspect ratio.
-
-Use exactly two slides for this workflow: the native reconstruction on slide 1 and the locked source reference on slide 2. Let an explicit user filename and destination win; otherwise use a non-colliding `可编辑复现版.pptx` filename.
-
-### 5. Render and repair
-
-Rendering is mandatory, never optional. Render the final PPTX through a build-bound wrapper so the slide images cannot be stale or substituted:
-
-```bash
-"$SCI_DIAGRAM_PYTHON" "$SCI_DIAGRAM_SKILL_DIR/scripts/render_evidence.py" \
-  "$FINAL_PPTX" \
-  --render-script "$PRESENTATIONS_SKILL_DIR/container_tools/render_slides.py" \
-  --helper-python "$SCI_DIAGRAM_PYTHON" \
-  --render-dir "$BUILD_DIR/rendered" \
-  --output "$BUILD_DIR/render-report.json"
-```
-
-Require a fresh render directory and a `PASS` report. Then:
-
-1. render every slide;
-2. inspect slide 1 and slide 2 individually at full size;
-3. check overflow, clipping, wrapping, connector routing, z-order, and missing objects;
-4. compare the slide-1 render with the source at a common canvas;
-5. repair the `.mjs` source and rebuild rather than patching only the preview.
-
-Capture a build-bound overflow report with the current `Presentations` checker:
-
-```bash
-"$SCI_DIAGRAM_PYTHON" "$SCI_DIAGRAM_SKILL_DIR/scripts/overflow_check.py" \
-  "$FINAL_PPTX" \
-  --slides-test-script "$PRESENTATIONS_SKILL_DIR/container_tools/slides_test.py" \
-  --helper-python "$SCI_DIAGRAM_PYTHON" \
-  --output "$BUILD_DIR/overflow-report.json"
-```
-
-After the final export, write `manual-review-attestation.json` only after actually inspecting both final slide renders at full size and confirming `overflow-report.json` reports `PASS`. Bind the attestation to the locked source, final PPTX, renders, and overflow report hashes:
-
-```json
-{
-  "kind": "sci-diagram-pptx-manual-review-attestation",
-  "status": "PASS",
-  "source_sha256": "<locked source sha256>",
-  "pptx_sha256": "<final pptx sha256>",
-  "full_size_visual_review": true,
-  "overflow_check_passed": true,
-  "reviewed_at": "<ISO-8601 timestamp>",
-  "reviewer": "<reviewing agent or person>",
-  "evidence": {
-    "slide_1_render": {"path": "<absolute path>", "sha256": "<sha256>"},
-    "slide_2_render": {"path": "<absolute path>", "sha256": "<sha256>"},
-    "overflow_report": {"path": "<absolute path to overflow-report.json>", "sha256": "<sha256>", "exit_code": 0}
-  }
-}
-```
-
-Never prefill either boolean or reuse an attestation from another build.
-
-Generate comparison evidence:
-
-```bash
-"$SCI_DIAGRAM_PYTHON" "$SCI_DIAGRAM_SKILL_DIR/scripts/compare_render.py" \
-  --reference "$SOURCE_IMAGE" \
-  --render "$BUILD_DIR/rendered/slide-1.png" \
-  --output-dir "$BUILD_DIR/visual-qa"
-```
-
-Use visual metrics to locate differences, not as the sole acceptance criterion. Font rasterization and antialiasing vary by renderer.
-
-If three consecutive repair passes fail to reduce meaningful differences, return `QA_NOT_CONVERGING` with the remaining regions. Do not label the file final.
-
-### 6. Audit native structure
-
-Read [qa-gates.md](references/qa-gates.md). Audit the package before delivery:
-
-```bash
-"$SCI_DIAGRAM_PYTHON" "$SCI_DIAGRAM_SKILL_DIR/scripts/audit_pptx.py" \
-  "$FINAL_PPTX" \
-  --source-manifest "$BUILD_DIR/source-manifest.json" \
-  --scene-plan "$BUILD_DIR/scene-plan.json" \
-  --output "$BUILD_DIR/pptx-audit.json"
-```
-
-Confirm at minimum:
-
-- the file opens and contains the expected two visible slides;
-- both slides share the intended size;
-- slide 1 is not a whole-slide image and contains no hidden source image;
-- live text, connectors, groups, and approved raster exceptions match the plan;
-- no macros, OLE packages, external media, SVG/EMF/WMF shortcuts, or orphaned slide parts exist;
-- slide 2 contains the locked selected source or exact panel crop with preserved aspect ratio and no further crop;
-- no unresolved placeholders, unintended overlaps, clipping, or overflow remain.
-
-Run the aggregate gate:
-
-```bash
-"$SCI_DIAGRAM_PYTHON" "$SCI_DIAGRAM_SKILL_DIR/scripts/qa_gate.py" \
-  --scene-plan-report "$BUILD_DIR/scene-plan-validation.json" \
-  --pptx-audit "$BUILD_DIR/pptx-audit.json" \
-  --render-report "$BUILD_DIR/render-report.json" \
-  --visual-report "$BUILD_DIR/visual-qa/report.json" \
-  --overflow-report "$BUILD_DIR/overflow-report.json" \
-  --manual-review-attestation "$BUILD_DIR/manual-review-attestation.json" \
-  --output "$BUILD_DIR/qa-summary.json"
-```
-
-Any unresolved hard failure blocks delivery. Deliver only when `qa-summary.json` reports `delivery_authorization: true`.
-
-### 7. Record the verification level
-
-Use exactly one label:
-
-- `powerpoint-verified`: Microsoft PowerPoint opened, saved, rendered, and passed a representative editability smoke test on a temporary copy.
-- `renderer-verified`: OOXML structure, standard rendering, overflow, and visual checks passed, but Microsoft PowerPoint round-trip was unavailable.
-
-Never imply `powerpoint-verified` from LibreOffice, a thumbnail renderer, or package inspection alone.
-
-## Handle audit and repair requests
-
-For **Audit**, run source preflight, then build the scene plan from the locked source or import an existing trusted plan already bound to that source. Never infer the expected result from the PPTX being audited. Render, compare, audit the package, and report failures without modifying the PPTX.
-
-For **Repair**, preserve the original file and create a copy. Reuse correct native objects, retain stable names where possible, update the scene plan, and rerun every hard gate. Do not flatten the deck to simplify repair.
-
-## Deliver
-
-Deliver only when the aggregate gate passes. Return the final PPTX and a concise summary containing:
-
-- source identity;
-- verification level;
-- approved approximations or raster exceptions;
-- any non-blocking compatibility warnings.
-
-Do not deliver manifests, source code, renders, or QA artifacts unless requested. Do not hide unresolved uncertainty in speaker notes or invisible objects.
-
-Use these terminal states honestly:
-
-```text
-NEEDS_TARGET_SELECTION
-NEEDS_SOURCE
-NEEDS_CONTENT_CONFIRMATION
-NEEDS_FALLBACK_APPROVAL
-UNSUPPORTED_NATIVE_REQUIREMENT
-QA_NOT_CONVERGING
-DELIVERED
-```
+If a required native behavior is unavailable, explain the exact limitation and the narrowest practical alternative. Do not loop indefinitely or hide uncertainty in invisible objects.
