@@ -18,19 +18,33 @@
 
 预览均由可编辑重建页实际渲染。下载 PPTX 后，可以逐个修改文字、形状和连接线。
 
-<div align="center">
-
-### 全球创新产业链研究框架
-
-<a href="docs/cases/global-innovation-chain-framework.png">
-  <img src="docs/cases/global-innovation-chain-framework.png" width="430" alt="全球创新产业链研究框架：纵向研究阶段、中央多层研究内容与右侧研究方法组成的可编辑科研框架图">
-</a>
-
-[下载可编辑 PPTX](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/global-innovation-chain-framework-editable.pptx)
-
-</div>
-
 <table>
+  <tr>
+    <th width="50%">全球创新产业链研究框架</th>
+    <th width="50%">城市边缘区生态适应性机制图</th>
+  </tr>
+  <tr>
+    <td align="center" valign="middle">
+      <a href="docs/cases/global-innovation-chain-framework.png">
+        <img src="docs/cases/global-innovation-chain-framework.png" width="86%" alt="全球创新产业链研究框架：纵向研究阶段、中央多层研究内容与右侧研究方法组成的可编辑科研框架图">
+      </a>
+    </td>
+    <td align="center" valign="middle">
+      <a href="docs/cases/urban-fringe-ecological-adaptability-mechanism.png">
+        <img src="docs/cases/urban-fringe-ecological-adaptability-mechanism.png" width="81%" alt="城市边缘区生态适应性机制图：从提出问题、分析问题到宏观中观微观尺度决策的可编辑研究机制图">
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <a href="docs/cases/global-innovation-chain-framework.png">查看大图</a> ·
+      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/global-innovation-chain-framework-editable.pptx">下载 PPTX</a>
+    </td>
+    <td align="center">
+      <a href="docs/cases/urban-fringe-ecological-adaptability-mechanism.png">查看大图</a> ·
+      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/urban-fringe-ecological-adaptability-mechanism-editable.pptx">下载 PPTX</a>
+    </td>
+  </tr>
   <tr>
     <th width="50%">载荷循环机制图</th>
     <th width="50%">自适应 FIR 模态分解流程图</th>
@@ -49,9 +63,11 @@
   </tr>
   <tr>
     <td align="center">
+      <a href="docs/cases/load-cycle-model.png">查看大图</a> ·
       <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/load-cycle-model-editable.pptx">下载 PPTX</a>
     </td>
     <td align="center">
+      <a href="docs/cases/adaptive-fir-mode-decomposition.png">查看大图</a> ·
       <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/adaptive-fir-mode-decomposition-flowchart-editable.pptx">下载 PPTX</a>
     </td>
   </tr>
@@ -177,6 +193,7 @@ Preserve all labels, formulas, hierarchy, directions, and connections. Do not re
 ### Editable examples
 
 - [Global innovation-chain framework](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/global-innovation-chain-framework-editable.pptx)
+- [Urban-fringe ecological adaptability mechanism](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/urban-fringe-ecological-adaptability-mechanism-editable.pptx)
 - [Load-cycle mechanism](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/load-cycle-model-editable.pptx)
 - [Adaptive FIR decomposition flowchart](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/adaptive-fir-mode-decomposition-flowchart-editable.pptx)
 
