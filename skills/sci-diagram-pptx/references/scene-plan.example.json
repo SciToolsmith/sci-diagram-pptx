@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0",
+  "kind": "sci-diagram-pptx-scene-plan",
+  "source": {
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "PNG",
+    "width_px": 1000,
+    "height_px": 700
+  },
+  "canvas": {
+    "coordinate_system": "normalized-top-left",
+    "width_inches": 10,
+    "height_inches": 7
+  },
+  "objects": [
+    {
+      "id": "node-a",
+      "type": "node",
+      "source_bbox": {"x": 0.1, "y": 0.2, "width": 0.25, "height": 0.2},
+      "bbox": {"x": 0.1, "y": 0.2, "width": 0.25, "height": 0.2},
+      "z_order": 1,
+      "confidence": 0.98,
+      "reconstruction": {"mode": "native-exact", "expected_ooxml_kind": "shape"},
+      "content": {"text": "Input", "language": "en"},
+      "style": {"shape_geometry": "roundRect", "fill": {}, "line": {}, "text": {}}
+    },
+    {
+      "id": "node-b",
+      "type": "formula-node",
+      "source_bbox": {"x": 0.65, "y": 0.2, "width": 0.25, "height": 0.2},
+      "bbox": {"x": 0.65, "y": 0.2, "width": 0.25, "height": 0.2},
+      "z_order": 2,
+      "confidence": 0.96,
+      "reconstruction": {"mode": "native-exact", "expected_ooxml_kind": "shape"},
+      "content": {"text": "x → y", "math_source": "x → y", "language": "und"},
+      "style": {"shape_geometry": "textbox", "fill": {}, "line": {}, "text": {}}
+    }
+  ],
+  "connections": [
+    {
+      "id": "edge-a-b",
+      "from": {"object_id": "node-a", "anchor": "right"},
+      "to": {"object_id": "node-b", "anchor": "left"},
+      "source_route": [{"x": 0.35, "y": 0.3}, {"x": 0.65, "y": 0.3}],
+      "route": [{"x": 0.35, "y": 0.3}, {"x": 0.65, "y": 0.3}],
+      "z_order": 0,
+      "confidence": 0.94,
+      "reconstruction": {"mode": "native-exact", "expected_ooxml_kind": "connector"},
+      "style": {
+        "kind": "attached-connector",
+        "arrow_at": "end",
+        "dash": "solid",
+        "line_width_px": 1.5,
+        "line_color": "#334155"
+      }
+    }
+  ],
+  "approvals": {"degradations": []},
+  "notes": "Replace the source identity and measured coordinates; never copy placeholder values into a real plan."
+}

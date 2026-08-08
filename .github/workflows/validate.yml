@@ -1,0 +1,161 @@
+name: Validate SciDiagram PPTX
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sci-diagram-pptx-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.10"
+          - "3.12"
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install validation dependencies
+        run: >-
+          python -m pip install --disable-pip-version-check
+          -r requirements-ci.txt
+
+      - name: Validate metadata and package boundary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import yaml
+
+          root = Path.cwd()
+          skill = root / "skills" / "sci-diagram-pptx"
+          text = (skill / "SKILL.md").read_text(encoding="utf-8")
+          parts = text.split("---", 2)
+          assert len(parts) == 3 and not parts[0].strip(), "Missing YAML frontmatter"
+          metadata = yaml.safe_load(parts[1])
+          assert set(metadata) == {"name", "description"}
+          assert metadata["name"] == "sci-diagram-pptx"
+          assert isinstance(metadata["description"], str) and metadata["description"].strip()
+
+          interface = yaml.safe_load(
+              (skill / "agents" / "openai.yaml").read_text(encoding="utf-8")
+          )["interface"]
+          assert interface["display_name"] == "SciDiagram PPTX｜科研图示原生复现"
+          assert 25 <= len(interface["short_description"]) <= 64
+          assert "$sci-diagram-pptx" in interface["default_prompt"]
+
+          assert (root / "LICENSE").read_bytes() == (skill / "LICENSE").read_bytes()
+          assert not list(skill.rglob("README*")), "README must stay outside the Skill package"
+          forbidden = [
+              path for path in skill.rglob("*")
+              if path.name == ".DS_Store"
+              or path.name == "__pycache__"
+              or path.suffix in {".pyc", ".pyo"}
+          ]
+          assert not forbidden, f"Platform or bytecode junk found: {forbidden}"
+
+          schema = json.loads((skill / "scripts" / "scene-plan.schema.json").read_text(encoding="utf-8"))
+          example = json.loads((skill / "references" / "scene-plan.example.json").read_text(encoding="utf-8"))
+          assert schema["$id"].startswith("https://raw.githubusercontent.com/SciToolsmith/")
+          assert example["kind"] == "sci-diagram-pptx-scene-plan"
+          print("metadata and package boundary: valid")
+          PY
+
+      - name: Reject local paths and platform junk
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          roots = [Path("README.md"), Path("skills/sci-diagram-pptx"), Path("tests")]
+          needles = ("/Users/", "/Volumes/", "/private/tmp/")
+          failures = []
+          for root in roots:
+              paths = [root] if root.is_file() else [p for p in root.rglob("*") if p.is_file()]
+              for path in paths:
+                  try:
+                      text = path.read_text(encoding="utf-8")
+                  except UnicodeDecodeError:
+                      continue
+                  for needle in needles:
+                      if needle in text:
+                          failures.append(f"{path}: contains {needle}")
+          assert not failures, "\n".join(failures)
+          print("local path scan: clean")
+          PY
+
+      - name: Compile Python surfaces
+        run: |
+          python -m compileall -q skills/sci-diagram-pptx/scripts
+          python -m compileall -q tests
+
+      - name: Run preflight and lineage regressions
+        run: python -B tests/test_preflight.py --expect-count 0
+
+      - name: Run OOXML, visual, wrapper, and aggregate regressions
+        run: python -B tests/test_audit.py -q
+
+      - name: Smoke every documented CLI
+        run: |
+          for script in \
+            source_preflight.py \
+            panel_crop.py \
+            validate_scene_plan.py \
+            render_evidence.py \
+            compare_render.py \
+            overflow_check.py \
+            audit_pptx.py \
+            qa_gate.py
+          do
+            python -B "skills/sci-diagram-pptx/scripts/$script" --help >/dev/null
+          done
+
+      - name: Check relative README and Skill links
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          root = Path.cwd()
+          files = [root / "README.md", root / "skills/sci-diagram-pptx/SKILL.md"]
+          files.extend((root / "skills/sci-diagram-pptx/references").glob("*.md"))
+          missing = []
+          markdown_link = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
+          html_link = re.compile(r"(?:href|src)=\"([^\"]+)\"")
+          for path in files:
+              text = path.read_text(encoding="utf-8")
+              for target in markdown_link.findall(text) + html_link.findall(text):
+                  if not target or target.startswith(("#", "http://", "https://", "mailto:")):
+                      continue
+                  clean = target.split("#", 1)[0]
+                  if clean and not (path.parent / clean).resolve().exists():
+                      missing.append(f"{path}: {target}")
+          assert not missing, "Missing relative links:\n" + "\n".join(missing)
+          print("relative links: valid")
+          PY
+
+  required:
+    name: validate
+    needs: validate
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every Python matrix job
+        env:
+          MATRIX_RESULT: ${{ needs.validate.result }}
+        run: test "$MATRIX_RESULT" = "success"

@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="520" viewBox="0 0 1280 520" role="img" aria-labelledby="title desc">
+  <title id="title">SciDiagram PPTX — scientific schematics to native editable PowerPoint</title>
+  <desc id="desc">An original conceptual illustration showing a scientific schematic locked as a source, reconstructed as native PowerPoint objects, delivered on two slides, and verified by a fail-closed QA gate.</desc>
+  <metadata>Original repo-native conceptual artwork for SciToolsmith. No paper image or third-party visual asset is embedded.</metadata>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="0.5" stop-color="#eef2ff"/>
+      <stop offset="1" stop-color="#ecfeff"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f46e5"/>
+      <stop offset="1" stop-color="#0891b2"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#1e293b" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0 0L10 5L0 10Z" fill="#64748b"/>
+    </marker>
+    <style>
+      .ui{font-family:Inter,"Segoe UI",Arial,sans-serif}.label{font-size:16px;font-weight:700;fill:#334155}.small{font-size:13px;font-weight:600;fill:#64748b}.micro{font-size:11px;font-weight:600;fill:#64748b}.card{fill:#fff;stroke:#cbd5e1;stroke-width:1.5}.node{fill:#eef2ff;stroke:#6366f1;stroke-width:1.5}.teal{fill:#ecfeff;stroke:#0891b2;stroke-width:1.5}
+    </style>
+  </defs>
+
+  <rect width="1280" height="520" rx="24" fill="url(#bg)"/>
+  <circle cx="1125" cy="70" r="155" fill="#a5f3fc" opacity="0.16"/>
+  <circle cx="115" cy="480" r="185" fill="#c7d2fe" opacity="0.20"/>
+
+  <g class="ui">
+    <text x="70" y="62" font-size="25" font-weight="800" fill="#0f172a">Lock the source. Rebuild the structure. Prove the delivery.</text>
+    <text x="70" y="92" font-size="15" font-weight="600" fill="#64748b">Scientific schematic → native PowerPoint objects → hash-bound QA</text>
+
+    <!-- Source schematic card -->
+    <g filter="url(#shadow)">
+      <rect class="card" x="70" y="132" width="302" height="276" rx="18"/>
+    </g>
+    <rect x="70" y="132" width="302" height="48" rx="18" fill="#f8fafc"/>
+    <path d="M70 162V180H372V162" fill="#f8fafc"/>
+    <circle cx="95" cy="156" r="6" fill="#4f46e5"/>
+    <text class="label" x="111" y="162">Locked schematic source</text>
+    <path d="M128 226H206" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+    <path d="M245 260V303" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+    <path d="M205 334H144" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect class="node" x="96" y="204" width="108" height="44" rx="9"/>
+    <text class="small" x="119" y="231">Question</text>
+    <rect class="teal" x="218" y="204" width="122" height="68" rx="9"/>
+    <text class="small" x="245" y="232">Mechanism</text>
+    <text class="micro" x="241" y="253">α → β → γ</text>
+    <rect class="node" x="188" y="307" width="112" height="44" rx="9"/>
+    <text class="small" x="218" y="334">Outcome</text>
+    <rect x="96" y="374" width="244" height="1" fill="#e2e8f0"/>
+    <path d="M111 386l8 8 16-19" fill="none" stroke="#0f766e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text class="micro" x="143" y="395">SHA-256 · dimensions · provenance</text>
+
+    <!-- Transformation -->
+    <path d="M400 270H468" stroke="url(#brand)" stroke-width="5" stroke-linecap="round" marker-end="url(#arrow)"/>
+    <text class="micro" x="401" y="248">Scene Plan</text>
+    <text class="micro" x="405" y="297">native only</text>
+
+    <!-- PPTX two-slide card -->
+    <g filter="url(#shadow)">
+      <rect class="card" x="488" y="132" width="384" height="276" rx="18"/>
+    </g>
+    <rect x="488" y="132" width="384" height="48" rx="18" fill="#f8fafc"/>
+    <path d="M488 162V180H872V162" fill="#f8fafc"/>
+    <rect x="513" y="145" width="24" height="24" rx="6" fill="url(#brand)"/>
+    <text x="521" y="163" font-size="13" font-weight="800" fill="#fff">P</text>
+    <text class="label" x="548" y="162">Two-slide editable PPTX</text>
+
+    <rect x="516" y="207" width="214" height="145" rx="10" fill="#fff" stroke="#4f46e5" stroke-width="2"/>
+    <text class="micro" x="528" y="226" fill="#4f46e5">SLIDE 1 · NATIVE</text>
+    <rect class="node" x="541" y="247" width="67" height="30" rx="6"/>
+    <rect class="teal" x="638" y="247" width="67" height="30" rx="6"/>
+    <path d="M609 262H635" stroke="#64748b" stroke-width="1.8" marker-end="url(#arrow)"/>
+    <path d="M671 280V306" stroke="#64748b" stroke-width="1.8" marker-end="url(#arrow)"/>
+    <rect class="node" x="638" y="309" width="67" height="25" rx="6"/>
+    <text class="micro" x="543" y="373">Shapes · text · connectors</text>
+
+    <rect x="749" y="225" width="95" height="127" rx="8" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"/>
+    <text class="micro" x="761" y="244">SLIDE 2</text>
+    <rect x="762" y="258" width="69" height="70" rx="5" fill="#fff" stroke="#cbd5e1"/>
+    <rect x="771" y="269" width="50" height="11" rx="3" fill="#c7d2fe"/>
+    <path d="M779 291H816M779 302H809M779 313H816" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
+    <text class="micro" x="758" y="373">Locked reference</text>
+
+    <!-- QA card -->
+    <path d="M900 270H955" stroke="url(#brand)" stroke-width="5" stroke-linecap="round" marker-end="url(#arrow)"/>
+    <text class="micro" x="900" y="248">render</text>
+    <text class="micro" x="901" y="297">audit</text>
+    <g filter="url(#shadow)">
+      <rect x="976" y="132" width="234" height="276" rx="18" fill="#0f172a"/>
+    </g>
+    <path d="M1093 189l63 22v45c0 48-28 87-63 104-35-17-63-56-63-104v-45z" fill="url(#brand)"/>
+    <path d="M1063 266l21 21 42-49" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="1022" y="165" font-size="17" font-weight="800" fill="#e2e8f0">FAIL-CLOSED QA</text>
+    <text class="small" x="1017" y="385" fill="#cbd5e1">Delivery authorization</text>
+    <circle cx="1005" cy="430" r="5" fill="#22c55e"/>
+    <text class="micro" x="1018" y="434" fill="#cbd5e1">source-bound</text>
+    <circle cx="1095" cy="430" r="5" fill="#22c55e"/>
+    <text class="micro" x="1108" y="434" fill="#cbd5e1">auditable</text>
+
+    <rect x="70" y="448" width="1140" height="1" fill="#cbd5e1"/>
+    <circle cx="82" cy="476" r="12" fill="none" stroke="#0f172a" stroke-width="3" stroke-linecap="round" stroke-dasharray="63 13" transform="rotate(-18 82 476)"/>
+    <circle cx="93" cy="465" r="3.5" fill="#2563eb"/>
+    <text x="108" y="482" font-size="14" font-weight="700" fill="#475569">SciToolsmith</text>
+    <text x="214" y="482" font-size="14" font-weight="600" fill="#64748b">Scientific tooling with explicit contracts, provenance, and verification.</text>
+  </g>
+</svg>
