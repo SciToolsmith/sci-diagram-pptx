@@ -17,6 +17,8 @@
 
 <a href="#install"><strong>安装</strong></a>
 ·
+<a href="#gallery"><strong>案例展廊</strong></a>
+·
 <a href="#scope"><strong>适用边界</strong></a>
 ·
 <a href="#delivery"><strong>交付内容</strong></a>
@@ -47,6 +49,46 @@ SciDiagram PPTX 是由 **SciToolsmith** 维护的 Codex Agent Skill。它不会�
 | 原生可编辑 | 科学含义优先 | 聚焦式检查 | 默认两页对照 |
 |:---:|:---:|:---:|:---:|
 | 形状、文字与连接线 | 文字、公式、方向与拓扑 | 一次完整渲染，最多一轮集中修复 | 重建页 + 源图页 |
+
+<a id="gallery"></a>
+
+## 真实案例展廊
+
+下面 3 个案例来自真实的 `$sci-diagram-pptx` 重建任务，不是静态图片模板。所有预览均由对应 PPTX 的可编辑重建页重新渲染；点击图片可查看大图，下载后可以在 PowerPoint 中逐个编辑形状、文字和连接关系。
+
+<div align="center">
+  <h3>01 · 全球创新产业链研究框架</h3>
+  <p><code>研究框架</code> · <code>多层嵌套</code> · <code>中文密集排版</code></p>
+  <a href="docs/cases/global-innovation-chain-framework.png"><img src="docs/cases/global-innovation-chain-framework.png" width="560" alt="全球创新产业链研究框架的原生可编辑 PowerPoint 重建预览，包含研究框架、研究内容和研究方法三栏"></a>
+  <p><strong>99 个原生形状 / 文本对象 · 23 条连接线 · 0 张图片</strong></p>
+  <p><a href="docs/cases/global-innovation-chain-framework.png">查看大图</a> · <a href="examples/cases/global-innovation-chain-framework-editable.pptx?raw=1"><strong>下载可编辑 PPTX</strong></a></p>
+</div>
+
+<table role="presentation">
+  <tr>
+    <th width="50%">02 · 载荷循环机制图</th>
+    <th width="50%">03 · 自适应 FIR 模态分解流程图</th>
+  </tr>
+  <tr>
+    <td align="center"><code>跨周期机制</code> · <code>数学上下标</code> · <code>虚实连接</code></td>
+    <td align="center"><code>算法流程</code> · <code>判断分支</code> · <code>反馈回路</code></td>
+  </tr>
+  <tr>
+    <td valign="top"><a href="docs/cases/load-cycle-model.png"><img src="docs/cases/load-cycle-model.png" width="100%" alt="两个载荷循环之间的数学机制关系原生可编辑 PowerPoint 重建预览"></a></td>
+    <td valign="top"><a href="docs/cases/adaptive-fir-mode-decomposition.png"><img src="docs/cases/adaptive-fir-mode-decomposition.png" width="100%" alt="带有周期估计、模式选择、判断节点和反馈回路的自适应 FIR 算法流程图原生可编辑 PowerPoint 重建预览"></a></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>30 个原生形状 / 文本对象 · 29 条连接线 · 0 张图片</strong></td>
+    <td align="center"><strong>45 个原生形状 / 文本对象 · 11 条连接线 · 0 张图片</strong></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="docs/cases/load-cycle-model.png">查看大图</a> · <a href="examples/cases/load-cycle-model-editable.pptx?raw=1"><strong>下载可编辑 PPTX</strong></a></td>
+    <td align="center"><a href="docs/cases/adaptive-fir-mode-decomposition.png">查看大图</a> · <a href="examples/cases/adaptive-fir-mode-decomposition-flowchart-editable.pptx?raw=1"><strong>下载可编辑 PPTX</strong></a></td>
+  </tr>
+</table>
+
+> [!NOTE]
+> 为便于安全开源分发，以上下载文件只包含**可编辑重建页**，不打包任务中的原始参考图或本机备注；因此每个公开案例都是单页 PPTX。Skill 在常规用户任务中仍默认交付“重建页 + 源图页”两页版本。
 
 <a id="scope"></a>
 
@@ -331,9 +373,17 @@ Skill 不会猜测可能改变含义的模糊内容。常见情况包括：
 ├── .github/workflows/validate.yml
 ├── docs/
 │   ├── hero.svg                       # 原创项目 Hero
+│   ├── cases/                          # 真实 Skill 输出的重建页预览
+│   │   ├── global-innovation-chain-framework.png
+│   │   ├── load-cycle-model.png
+│   │   └── adaptive-fir-mode-decomposition.png
 │   ├── synthetic-source.png           # 原创合成源图
 │   └── synthetic-native.png           # 原生重建渲染
 ├── examples/
+│   ├── cases/                          # 仅含可编辑重建页的公开案例
+│   │   ├── global-innovation-chain-framework-editable.pptx
+│   │   ├── load-cycle-model-editable.pptx
+│   │   └── adaptive-fir-mode-decomposition-flowchart-editable.pptx
 │   └── synthetic-demo.pptx            # 两页原生可编辑示例
 ├── tests/
 │   ├── test_panel_crop.py              # 明确选区裁剪回归
@@ -400,6 +450,14 @@ https://github.com/SciToolsmith/sci-diagram-pptx/tree/main/skills/sci-diagram-pp
 ```
 
 Then invoke it with `$sci-diagram-pptx`.
+
+### Featured editable examples
+
+- [Global innovation-chain research framework](examples/cases/global-innovation-chain-framework-editable.pptx?raw=1)
+- [Load-cycle mechanism model](examples/cases/load-cycle-model-editable.pptx?raw=1)
+- [Adaptive FIR mode-decomposition flowchart](examples/cases/adaptive-fir-mode-decomposition-flowchart-editable.pptx?raw=1)
+
+Each public case contains only the native editable reconstruction slide; task reference images and local notes are intentionally excluded from the downloadable files.
 
 ### Example
 
