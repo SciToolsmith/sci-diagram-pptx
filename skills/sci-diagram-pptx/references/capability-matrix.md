@@ -19,10 +19,10 @@ Stop probing after the smallest test answers the question. A full-slide prototyp
 | Source feature | Preferred implementation | Acceptable practical fallback |
 | --- | --- | --- |
 | Standard nodes and block arrows | Native preset shape | Closest native preset with a disclosed cosmetic difference |
-| Irregular but simple polygon | One native custom shape | Closest editable preset when meaning is unchanged |
-| Curved or compound freeform | Supported custom geometry | Editable approximation after confirming that topology is unchanged |
+| Irregular but simple polygon | One native custom/freeform visual plate; use a separate standard text box for its label | Closest editable preset when meaning is unchanged |
+| Curved or compound freeform | Supported custom geometry as a visual plate; use a separate standard text box for its label | Editable approximation after confirming that topology is unchanged |
 | Native text and mixed formatting | Shape text or structured runs | Installed close font if all glyphs and line breaks remain correct |
-| Superscript, subscript, vertical text | Proven native property | Editable Unicode, linear text, or rotation when meaning remains clear |
+| Superscript, subscript, vertical text | Native baseline/structured runs for scripts; proven native property for vertical text | Editable Unicode, linear text, or rotation when meaning remains clear |
 | Complex equation | Native Office Math when reliably supported | Ask before using linear text or a local formula image |
 | Attached connector | Native connector with verified direction | Free-positioned native line when attachment is not essential |
 | Intrinsic raster inset | One local image object | Preserve it as raster and keep surrounding structure native |

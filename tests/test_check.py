@@ -18,6 +18,7 @@ import check_pptx  # noqa: E402
 
 P = "http://schemas.openxmlformats.org/presentationml/2006/main"
 A = "http://schemas.openxmlformats.org/drawingml/2006/main"
+M = "http://schemas.openxmlformats.org/officeDocument/2006/math"
 R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 REL = "http://schemas.openxmlformats.org/package/2006/relationships"
 W, H = 9_144_000, 5_143_500
@@ -45,13 +46,74 @@ def tree(children: str = "") -> str:
     )
 
 
-def node() -> str:
+def font_markup(mode: str) -> str:
+    if mode == "missing":
+        return ""
+    if mode == "partial":
+        return '<a:latin typeface="Aptos"/>'
+    typeface = "+mn-lt" if mode == "theme" else "Aptos"
+    return "".join(
+        f'<a:{script} typeface="{typeface}"/>' for script in ("latin", "ea", "cs")
+    )
+
+
+def node(variant: str = "good") -> str:
+    font_mode = variant if variant in {"missing", "partial", "theme"} else "explicit"
+    fonts = font_markup(font_mode)
+    geometry = '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'
+    if variant in {"custom_missing_rect", "custom_empty_rect", "custom_with_rect", "custom_no_text"}:
+        if variant == "custom_with_rect":
+            text_rectangle = '<a:rect l="l" t="t" r="r" b="b"/>'
+        elif variant == "custom_empty_rect":
+            text_rectangle = "<a:rect/>"
+        else:
+            text_rectangle = ""
+        geometry = (
+            '<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/>'
+            f'<a:pathLst/>{text_rectangle}</a:custGeom>'
+        )
+
+    body_properties = "<a:bodyPr/>"
+    if variant == "wrap_none":
+        body_properties = '<a:bodyPr wrap="none"><a:noAutofit/></a:bodyPr>'
+    elif variant == "normal_autofit":
+        body_properties = "<a:bodyPr><a:normAutofit/></a:bodyPr>"
+    elif variant == "shape_autofit":
+        body_properties = "<a:bodyPr><a:spAutoFit/></a:bodyPr>"
+    elif variant == "invalid_autofit":
+        body_properties = "<a:bodyPr><a:normAutofit/><a:spAutoFit/></a:bodyPr>"
+
+    if variant == "custom_no_text":
+        runs = ""
+    elif variant == "unicode_script":
+        runs = f'<a:r><a:rPr>{fonts}</a:rPr><a:t>uₖⁱ</a:t></a:r>'
+    elif variant == "native_baseline":
+        runs = (
+            f'<a:r><a:rPr>{fonts}</a:rPr><a:t>x</a:t></a:r>'
+            f'<a:r><a:rPr baseline="30000">{fonts}</a:rPr><a:t>2</a:t></a:r>'
+        )
+    else:
+        runs = f'<a:r><a:rPr>{fonts}</a:rPr><a:t>Node</a:t></a:r>'
+
     return (
         '<p:sp><p:nvSpPr><p:cNvPr id="2" name="node_001"/><p:cNvSpPr/><p:nvPr/>'
         '</p:nvSpPr><p:spPr><a:xfrm><a:off x="914400" y="514350"/>'
-        '<a:ext cx="1828800" cy="1028700"/></a:xfrm><a:prstGeom prst="rect">'
-        '<a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/>'
-        '<a:p><a:r><a:t>Node</a:t></a:r></a:p></p:txBody></p:sp>'
+        f'<a:ext cx="1828800" cy="1028700"/></a:xfrm>{geometry}</p:spPr>'
+        f'<p:txBody>{body_properties}<a:lstStyle/><a:p>{runs}</a:p></p:txBody></p:sp>'
+    )
+
+
+def office_math(mode: str) -> str:
+    if mode == "invalid":
+        content = "<m:r><m:t>x+1</m:t></m:r>"
+    else:
+        inner = "" if mode == "empty" else "<m:r><m:t>x+1</m:t></m:r>"
+        content = f"<m:oMath>{inner}</m:oMath>"
+    return (
+        '<p:extLst><p:ext uri="{office-math-test}">'
+        f'<a14:m xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main" xmlns:m="{M}">'
+        f'<m:oMathPara>{content}</m:oMathPara>'
+        '</a14:m></p:ext></p:extLst>'
     )
 
 
@@ -72,7 +134,15 @@ def make_deck(root: Path, variant: str = "good") -> tuple[Path, Path]:
     source.write_bytes(PNG)
     one_slide = variant == "one_slide"
 
-    slide1_children = node()
+    node_variants = {
+        "custom_missing_rect", "custom_empty_rect", "custom_with_rect", "custom_no_text", "font_missing", "font_partial", "font_theme",
+        "wrap_none", "normal_autofit", "shape_autofit", "invalid_autofit",
+        "unicode_script", "native_baseline",
+    }
+    node_variant = variant.removeprefix("font_") if variant in {"font_missing", "font_partial", "font_theme"} else variant
+    slide1_children = node(node_variant if variant in node_variants else "good")
+    if variant in {"office_math_valid", "office_math_empty", "office_math_invalid"}:
+        slide1_children += office_math(variant.removeprefix("office_math_"))
     slide1_rels = [("rId1", f"{R}/slideLayout", "../slideLayouts/slideLayout1.xml", False)]
     media: dict[str, bytes] = {}
     if variant == "full_image":
@@ -137,9 +207,84 @@ class CheckPptxTests(unittest.TestCase):
     def ids(self, report: dict[str, object]) -> set[str]:
         return {str(item["id"]) for item in report["hard_failures"]}  # type: ignore[index]
 
+    def warning_ids(self, report: dict[str, object]) -> set[str]:
+        return {str(item["id"]) for item in report["warnings"]}  # type: ignore[index]
+
+    def check(self, report: dict[str, object], identifier: str) -> dict[str, object]:
+        for item in report["checks"]:  # type: ignore[union-attr]
+            if item["id"] == identifier:
+                return item
+        self.fail(f"missing check {identifier}")
+
     def test_good_native_two_slide_package_passes(self) -> None:
         report = self.report("good")
         self.assertEqual(report["status"], "PASS", report["hard_failures"])
+        self.assertEqual(self.check(report, "slide1.font_inventory")["status"], "PASS")
+        self.assertEqual(self.check(report, "slide1.text_layout_inventory")["status"], "PASS")
+
+    def test_text_bearing_custom_geometry_without_text_rectangle_fails(self) -> None:
+        for variant in ("custom_missing_rect", "custom_empty_rect"):
+            with self.subTest(variant=variant):
+                report = self.report(variant)
+                self.assertIn("slide1.custom_geometry_text_rect", self.ids(report))
+                self.assertIn("slide1.custom_geometry_inventory", self.warning_ids(report))
+
+    def test_custom_geometry_with_text_rectangle_is_inventory_warning_only(self) -> None:
+        report = self.report("custom_with_rect")
+        self.assertEqual(report["status"], "PASS")
+        self.assertNotIn("slide1.custom_geometry_text_rect", self.ids(report))
+        self.assertEqual(self.check(report, "slide1.custom_geometry_text_rect")["status"], "PASS")
+        self.assertIn("slide1.custom_geometry_inventory", self.warning_ids(report))
+
+    def test_non_text_custom_geometry_without_text_rectangle_is_warning_only(self) -> None:
+        report = self.report("custom_no_text")
+        self.assertEqual(report["status"], "PASS")
+        self.assertNotIn("slide1.custom_geometry_text_rect", self.ids(report))
+        self.assertIn("slide1.custom_geometry_inventory", self.warning_ids(report))
+
+    def test_theme_partial_and_missing_fonts_are_inventory_warnings(self) -> None:
+        for variant in ("font_theme", "font_partial", "font_missing"):
+            with self.subTest(variant=variant):
+                report = self.report(variant)
+                self.assertEqual(report["status"], "PASS")
+                self.assertIn("slide1.font_inventory", self.warning_ids(report))
+
+    def test_wrap_and_dynamic_autofit_are_layout_warnings(self) -> None:
+        for variant in ("wrap_none", "normal_autofit", "shape_autofit"):
+            with self.subTest(variant=variant):
+                report = self.report(variant)
+                self.assertEqual(report["status"], "PASS")
+                self.assertIn("slide1.text_layout_inventory", self.warning_ids(report))
+
+    def test_multiple_autofit_children_fail(self) -> None:
+        report = self.report("invalid_autofit")
+        self.assertIn("slide1.text_autofit_exclusive", self.ids(report))
+
+    def test_nonempty_office_math_passes(self) -> None:
+        report = self.report("office_math_valid")
+        self.assertEqual(report["status"], "PASS")
+        item = self.check(report, "slide1.office_math")
+        self.assertEqual(item["status"], "PASS")
+        self.assertEqual(item["evidence"]["math_object_count"], 1)  # type: ignore[index]
+
+    def test_empty_office_math_fails(self) -> None:
+        report = self.report("office_math_empty")
+        self.assertIn("slide1.office_math", self.ids(report))
+
+    def test_incomplete_office_math_fails(self) -> None:
+        report = self.report("office_math_invalid")
+        self.assertIn("slide1.office_math", self.ids(report))
+
+    def test_unicode_scripts_warn_but_native_baseline_does_not(self) -> None:
+        unicode_report = self.report("unicode_script")
+        self.assertEqual(unicode_report["status"], "PASS")
+        self.assertIn("slide1.script_notation", self.warning_ids(unicode_report))
+
+        baseline_report = self.report("native_baseline")
+        self.assertEqual(baseline_report["status"], "PASS")
+        self.assertNotIn("slide1.script_notation", self.warning_ids(baseline_report))
+        item = self.check(baseline_report, "slide1.script_notation")
+        self.assertEqual(item["evidence"]["native_baseline_property_count"], 1)  # type: ignore[index]
 
     def test_full_slide_picture_fails(self) -> None:
         report = self.report("full_image")

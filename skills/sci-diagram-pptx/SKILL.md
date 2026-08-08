@@ -5,7 +5,7 @@ description: Reconstruct, repair, or inspect user-provided scientific and academ
 
 # SciDiagram PPTX
 
-Rebuild the supplied scientific schematic as a practical, editable PowerPoint. Reproduce the source; do not redesign it unless the user explicitly asks for redesign.
+Rebuild the supplied scientific schematic as a practical, editable, portable PowerPoint. Reproduce the source; do not redesign it unless the user explicitly asks for redesign.
 
 ## Preserve what matters
 
@@ -51,13 +51,15 @@ When the user explicitly selects a panel from a larger image, crop only that pan
 
 ```bash
 "$SCI_DIAGRAM_PYTHON" "$SCI_DIAGRAM_SKILL_DIR/scripts/panel_crop.py" \
-  "$PARENT_IMAGE" --bbox <x> <y> <width> <height> \
-  --output "$BUILD_DIR/panel.png"
+  "$SOURCE_IMAGE" --bbox <x> <y> <width> <height> \
+  --output "$BUILD_DIR/reference-panel.png"
 ```
+
+Use the original source as `REFERENCE_IMAGE` when no crop is needed. After an explicit crop, use the selected panel as `REFERENCE_IMAGE` for reconstruction, the reference slide, and package checking.
 
 ### 2. Build with native semantic units
 
-Read [native-object-policy.md](references/native-object-policy.md). Use one coherent native object per meaningful unit whenever practical: a labeled node as one shape with text, a relationship as one connector, and a standard arrow as one shape.
+Read [native-object-policy.md](references/native-object-policy.md) and [cross-platform-compatibility.md](references/cross-platform-compatibility.md). Use one coherent native object per meaningful unit whenever practical. Standard preset shapes may contain their labels. Treat custom geometry and freeforms as visual plates with overlaid standard text boxes unless a usable text rectangle has been explicitly defined and verified.
 
 Preserve the source aspect ratio and derive placement from one consistent source-to-slide transform. Keep connectors behind nodes where appropriate and preserve source direction, endpoint, dash style, crossings, and z-order.
 
@@ -68,7 +70,7 @@ Default to two slides using the same canvas:
 
 Honor an explicit user request for a one-slide deliverable. Slide 1 must never be a full-slide source bitmap, hidden tracing image, or image-tile mosaic.
 
-For formulas, true vertical text, compound freeforms, gradients, or unusual connectors, read [math-and-fonts.md](references/math-and-fonts.md) and, only if support is uncertain, [capability-matrix.md](references/capability-matrix.md). Use one focused capability probe, not a full evidence workflow.
+For formulas, true vertical text, compound freeforms, gradients, or unusual connectors, read [math-and-fonts.md](references/math-and-fonts.md) and, only if support is uncertain, [capability-matrix.md](references/capability-matrix.md). Size and wrap text during generation with explicit fonts, line breaks, margins, and reasonable headroom; do not depend on PowerPoint changing the layout through open-time AutoFit. Use one focused capability probe, not a full evidence workflow.
 
 Use a close native approximation without pausing when the difference is cosmetic. Ask first when a fallback changes scientific meaning, formula content, arrow topology, or converts a substantial meaning-bearing region to raster.
 
@@ -93,21 +95,30 @@ Read [quality-checklist.md](references/quality-checklist.md), then run:
 
 ```bash
 "$SCI_DIAGRAM_PYTHON" "$SCI_DIAGRAM_SKILL_DIR/scripts/check_pptx.py" \
-  "$FINAL_PPTX" --source "$SOURCE_IMAGE" \
+  "$FINAL_PPTX" --source "$REFERENCE_IMAGE" \
   --output "$BUILD_DIR/check.json"
 ```
 
-The check must confirm that the package opens, contains a usable native reconstruction, avoids whole-page raster simulation, has no macro/OLE/external-media shortcuts, and—when a reference slide exists—uses the supplied source without an additional crop. Fix any reported hard failure. Treat its warnings as prompts for judgment, not automatic rejection.
+The check must confirm that the package opens, contains a usable native reconstruction, avoids whole-page raster simulation, has no macro/OLE/external-media shortcuts, and—when a reference slide exists—uses the supplied source without an additional crop. Fix reported hard failures together and rerun this lightweight check once on the repaired file. Treat warnings as prompts for judgment, not automatic rejection.
 
-### 5. Deliver
+### 5. Run one native smoke check when available
+
+After render review and package checking pass, open or export the final candidate once with a real local PowerPoint installation when one is accessible. Check only for a repair prompt, missing content, material text reflow or clipping, displaced custom geometry labels, and broken formulas. This is a final compatibility smoke check, not a Windows/macOS mode or a multi-round visual audit.
+
+If native PowerPoint is unavailable, do not simulate or claim this check. Record the actual render, package, and platform validation scope in the delivery note.
+
+### 6. Deliver
 
 Deliver when scientific content, topology, native editability, readability, and file integrity are sound. Remaining cosmetic differences are not blockers.
 
 Return the final PPTX and a short note covering:
 
 - that the file was rendered and structurally checked;
+- whether the one native PowerPoint smoke check was performed and on which actual environment;
 - any material native approximation or local raster element;
 - any remaining compatibility limitation worth the user's attention.
+
+Deliver one portable PPTX by default. Derive platform-specific copies only when a real cross-platform blocker remains after the portable construction rules and each copy can be validated in its named target PowerPoint environment. Do not create or label Windows/macOS versions from operating-system assumptions alone.
 
 Do not deliver build scripts, reports, renders, or intermediate files unless requested.
 

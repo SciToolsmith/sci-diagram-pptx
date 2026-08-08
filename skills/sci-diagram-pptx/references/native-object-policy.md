@@ -6,15 +6,20 @@ Represent each meaningful unit with the simplest PowerPoint-native object that p
 
 | Source unit | Preferred PowerPoint object |
 | --- | --- |
-| Labeled node | One shape containing native text |
+| Labeled preset node | One preset shape containing native text |
 | Standalone label | One text box with coherent text runs |
 | Rectangle, rounded box, ellipse, diamond, arrow | Matching preset shape |
-| Simple irregular polygon | One native custom shape when supported |
+| Custom geometry or freeform with a label | Custom/freeform visual plate plus one standard text box, grouped when useful |
+| Custom geometry with a verified text rectangle | One native custom shape containing text when the text rectangle exports and renders correctly |
 | Relationship | One connector or native line with arrowhead |
 | Boundary or divider | One native outline or line with dash style |
 | Intrinsically raster inset | One local image object at the correct layer |
 
 Keep text as text and standard arrows as single shapes or connectors. Do not fragment labels into characters, arrows into shaft-and-head pieces, or dashed borders into many short lines.
+
+Preset rectangles, rounded rectangles, ellipses, diamonds, and standard arrows may own their labels because their text regions are stable. Do not assume the bounding box of an irregular polygon is a safe text region. Use custom geometry and freeforms as visual plates and overlay an ordinary PowerPoint text box by default. Group the plate and text box only when it makes later editing clearer.
+
+Allow a custom/freeform object to own text only after its exported geometry contains an explicit, usable text rectangle and a focused render confirms placement and clipping. The visual path alone is not a text rectangle. If that proof is absent, keep the text separate even when the authoring library accepts a text property.
 
 ## Preserve topology and practical editability
 

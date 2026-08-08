@@ -21,6 +21,8 @@
 ·
 <a href="#delivery"><strong>交付内容</strong></a>
 ·
+<a href="#compatibility"><strong>跨平台兼容</strong></a>
+·
 <a href="#workflow"><strong>工作流</strong></a>
 ·
 <a href="#qa"><strong>质量检查</strong></a>
@@ -78,7 +80,7 @@ SciDiagram PPTX 是由 **SciToolsmith** 维护的 Codex Agent Skill。它不会�
 
 ## 交付内容
 
-创建或重建任务默认交付两页，并保持同一画布尺寸：
+创建或重建任务默认交付**一个跨平台可编辑 PPTX**（portable editable PPTX）。文件内包含两页，并保持同一画布尺寸：
 
 | 页面 | 内容 | 用途 |
 |---|---|---|
@@ -108,6 +110,25 @@ Slide 2 保持源图宽高比并完整放置；如果用户选定的是混合图
 
 > [!NOTE]
 > “原生可编辑”不等于所有复杂对象都能无损往返。复杂自由曲线、真竖排、深层公式和特殊箭头可能受到 PowerPoint 或当前生成工具能力限制。Skill 会优先保护科学含义和可编辑性，并在语义相关的近似或局部栅格替代前征求确认。
+
+<a id="compatibility"></a>
+
+## 跨平台兼容策略
+
+SciDiagram PPTX 默认只生成一个 portable editable PPTX，不默认拆成 Windows 版和 macOS 版。兼容目标是让科学内容、拓扑、原生可编辑性和可读性在常见 PowerPoint 环境中保持稳定；**不承诺不同操作系统、PowerPoint 版本和字体环境下像素完全一致**。
+
+为减少跨平台重排，Skill 在生成阶段采用 PowerPoint 支持较稳定的对象和显式排版参数：
+
+- 标准矩形、圆形、箭头等 preset shape 可以直接承载文字；自定义几何和自由形状默认只作为视觉底板，文字覆盖为独立的标准 PowerPoint 文本框。只有已明确设置文字矩形并通过聚焦渲染验证的自定义几何才直接承载文字；
+- 显式设置字体、字号、换行、内边距和对齐，并按文字实测尺寸留出合理余量（通常约一成，按文字和语言调整），不依赖文件打开后的 AutoFit 重新决定版式；
+- 优先选择字形覆盖完整、目标环境较稳定的字体；无法避免字体替换、回退或换行变化时，在交付说明中披露，而不声称已经跨平台等效；
+- 简单上下标优先使用原生 baseline / structured runs；复杂公式优先使用经当前工具验证的 Office Math。任何可能改变公式含义的线性文本或局部图片替代都需要先确认。
+
+只有在 portable 规则仍无法消除影响内容或阅读的**真实平台阻断问题**时，才从同一份规范对象数据派生平台专用文件；每个副本都必须在对应目标平台完成验证。仅在当前系统生成一个带平台名称的副本，不算对应平台已验证。
+
+如果需求是固定展示效果而不是跨平台继续编辑，优先在单一可编辑 PPTX 之外提供 PDF 预览，而不是自动维护两份未经实机验证的 PPTX。
+
+常规验证保持克制：一次完整渲染、一次 `check.json` 结构检查；如发现阻断问题，集中修复并复核受影响页面。当前环境可以调用 Microsoft PowerPoint 时，再做一次最终打开或导出冒烟检查；不可用时，交付说明会明确验证范围，不以 LibreOffice、CI 或 OOXML 检查代替原生 PowerPoint 验证。
 
 <a id="install"></a>
 
@@ -167,10 +188,15 @@ flowchart LR
     D --> E["PowerPoint 原生重建"]
     E --> F["完整渲染一次<br/>聚焦检查"]
     F --> G{"有明显阻断问题?"}
-    G -->|"否"| J["轻量结构检查<br/>交付 PPTX"]
+    G -->|"否"| K["运行一次 check.json<br/>结构检查"]
     G -->|"是"| H["集中修复一次"]
-    H --> I["复核受影响页面"]
-    I --> J
+    H --> I["复核受影响页面<br/>并重跑轻量检查"]
+    I --> K
+    K --> N{"可调用 Microsoft<br/>PowerPoint?"}
+    N -->|"是"| M["最终打开或导出<br/>冒烟一次"]
+    N -->|"否"| V["披露验证范围"]
+    M --> J["交付一个 portable PPTX"]
+    V --> J
 ```
 
 ### 1. 确认目标和内容
@@ -187,8 +213,10 @@ flowchart LR
 ### 3. 用语义单元原生重建
 
 - 带标签的节点优先使用含原生文字的形状；
+- 自定义几何和自由形状默认作为视觉底板，文字使用独立标准文本框覆盖；
 - 关系优先使用原生连接线，并保持箭头方向和端点语义；
 - 连续文字保持为连续文字，不按字符拆碎；
+- 在生成期明确字体、换行和内边距并预留排版余量，不依赖打开后的动态 AutoFit；
 - 保留源图的信息层级和阅读路径，不擅自改写或美化；
 - 只有遇到复杂公式、特殊曲线或不确定的生成能力时，才按需查阅能力和字体参考。
 
@@ -210,9 +238,13 @@ flowchart LR
 
 如果集中修复后仍存在会改变科学含义或破坏文件的阻断问题，Skill 会说明具体限制并请求用户确认，而不是把未解决的问题包装成完成，也不会进入无上限优化循环。
 
-### 6. 交付可继续编辑的文件
+完成初次渲染和必要的集中修复后，对最终候选运行一次 `check.json` 结构检查。检查器报告的硬失败必须在交付前解决；结构检查不会重新开启一套多轮视觉审核。
 
-交付 PPTX，并用简短说明列出确实需要研究者核验的内容或可在 PowerPoint 中轻松完成的细微调整。临时预览和内部诊断文件不作为默认交付物。
+### 6. 做一次最终原生冒烟并交付
+
+当前环境可以调用 Microsoft PowerPoint 时，在所有修复完成后只做一次最终打开或导出冒烟检查。不可用时，不用替代渲染器冒充原生验证，而是在交付说明中准确列出已完成的渲染、结构检查和平台范围。
+
+默认交付一个 portable editable PPTX，并用简短说明列出确实需要研究者核验的内容、已完成的验证以及可在 PowerPoint 中轻松调整的细节。临时预览和内部诊断文件不作为默认交付物。
 
 <a id="qa"></a>
 
@@ -257,10 +289,13 @@ python skills/sci-diagram-pptx/scripts/check_pptx.py output.pptx \
 - PPTX/ZIP 是否可读且至少包含一页；
 - 两页交付时画布尺寸是否一致；
 - 第一页是否包含原生形状、文字或连接线，且不存在近整页单图或大面积图片拼贴；
+- 自定义几何对象出现时列入风险清单；直接承载文字却缺少 OOXML 文字矩形（`<a:rect>`）时作为硬失败；
+- 字体、换行与 AutoFit 结构清单；隐式或主题占位字体、`wrap="none"` 和打开时动态 AutoFit 会提示风险，互斥 AutoFit 设置同时存在时作为硬失败；
+- Office Math 结构是否为空，以及 Unicode 上下标/上标等可能发生字体回退的记号风险；
 - 是否存在宏、OLE 或外链媒体；
 - 提供源图且存在第二页时，参考页是否为唯一、未裁剪且与源图一致的嵌入图片。
 
-这份结构检查不能判断科学含义，也不能替代渲染后的视觉核对和研究者最终确认。
+这份结构检查不使用平台字体白名单，也不根据小文本框尺寸作脆弱推断。它不能判断字体在目标电脑上是否真实可用、公式与科学含义是否正确，也不能证明跨平台一致，更不能替代渲染后的视觉核对、真实 PowerPoint 冒烟检查或研究者最终确认。
 
 ## 验证说明
 
@@ -272,6 +307,8 @@ python3 tests/test_check.py
 ```
 
 这些回归测试证明的是当前代码路径能识别已覆盖的结构问题，不是任意科研图示的识别准确率或像素保真度基准。GitHub Actions、LibreOffice 渲染、ZIP/OOXML 检查也不能自动证明某个文件已经在 Microsoft PowerPoint 中完成往返测试；只有实际完成相应操作时，才应作出该说明。
+
+每次交付都应区分并如实说明：已完成通用渲染、已通过 `check.json`、已在 Microsoft PowerPoint 打开或导出，以及实际验证的平台和版本。没有执行的层级不得由其他检查推断为已经通过。
 
 ## 诚实处理不确定性
 
@@ -300,18 +337,19 @@ Skill 不会猜测可能改变含义的模糊内容。常见情况包括：
 │   └── synthetic-demo.pptx            # 两页原生可编辑示例
 ├── tests/
 │   ├── test_panel_crop.py              # 明确选区裁剪回归
-│   └── test_check.py                   # 轻量 PPTX 检查回归
+│   └── test_check.py                   # 包结构与跨平台风险检查回归
 └── skills/sci-diagram-pptx/
     ├── LICENSE                        # 随 Skill 子目录单独分发
     ├── SKILL.md                       # 触发边界与单一主流程
     ├── agents/openai.yaml             # Codex UI 元数据
     ├── references/
     │   ├── native-object-policy.md    # 原生对象和局部例外边界
+    │   ├── cross-platform-compatibility.md # 跨平台对象、排版与派生规则
     │   ├── math-and-fonts.md          # 复杂公式与字体问题时按需读取
     │   ├── capability-matrix.md       # 工具能力不确定时按需读取
     │   └── quality-checklist.md       # 阻断问题与可接受微差
     └── scripts/
-        ├── check_pptx.py              # 单份轻量结构检查结果
+        ├── check_pptx.py              # 单份包结构与跨平台风险检查结果
         └── panel_crop.py              # 用户明确选区时按需裁剪
 ```
 
@@ -383,5 +421,11 @@ A standard reconstruction contains two slides:
 2. the source image or exact user-selected schematic panel for comparison.
 
 Research meaning must still be verified by the user.
+
+### Cross-platform delivery
+
+By default, the skill delivers one portable editable PPTX, not separate Windows and macOS files. It favors stable preset shapes, explicit text layout, standard text boxes layered over custom geometry, native baseline formatting for simple super/subscripts, and Office Math for complex equations when reliably supported. The goal is stable meaning, editability, and readability—not pixel-identical rendering across operating systems, PowerPoint versions, or font environments. When fixed viewing matters more than cross-platform editing, a PDF preview alongside the single editable PPTX is preferable to two unverified PPTX variants.
+
+A platform-specific copy is derived from the same canonical object data only when a real blocker cannot be removed by the portable rules, and each copy must be verified on its named target platform. Normal validation consists of one render and one package check; when Microsoft PowerPoint is available, the final candidate also receives one native open-or-export smoke test. The delivery note states exactly which validation layers and platforms were actually used.
 
 </details>

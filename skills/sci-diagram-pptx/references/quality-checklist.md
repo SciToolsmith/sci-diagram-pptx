@@ -24,7 +24,15 @@ Do not hold delivery for small differences in font rasterization, kerning, exact
 2. Inspect the whole reconstruction beside the source at normal reading size.
 3. Enlarge dense text, formulas, and connector crossings.
 4. Run `scripts/check_pptx.py` for basic package and editability checks.
-5. If a blocking defect exists, repair all visible blockers in one focused pass and render again.
-6. Deliver when no blocker remains. Do not continue iterating only to improve a pixel score.
+5. If a blocking defect exists, repair all visible blockers in one focused pass, render again, and rerun the lightweight check once.
+6. When a real local PowerPoint installation is accessible, open or export the final candidate once as a native smoke check.
+7. Deliver when no blocker remains. Do not continue iterating only to improve a pixel score.
 
 After the second render, make further edits only for a named blocking defect. If critical content remains unreadable or a required native behavior is unsupported, ask the user rather than looping indefinitely.
+
+## Portability checks
+
+- Block `customGeom/freeform + text + no explicit text rectangle` in a generated deliverable because the same label can be placed safely in a standard text box. Inventory other custom geometry as a warning rather than rejecting it merely for being custom.
+- Inspect AutoFit dependence, inadequate text headroom, missing glyphs, unexpected font fallback, and fragile character fragments.
+- Keep the optional native smoke check to one final open or export. Do not add separate Windows/macOS review modes or a multi-round approval workflow.
+- Deliver one portable PPTX unless [cross-platform-compatibility.md](cross-platform-compatibility.md) justifies separately validated derivatives.
