@@ -6,15 +6,11 @@
 
 研究框架 · 技术路线 · 机制模型 · 算法流程 · 学术图示
 
-[![validation](https://img.shields.io/github/actions/workflow/status/SciToolsmith/sci-diagram-pptx/validate.yml?branch=main&style=flat-square&label=validation)](https://github.com/SciToolsmith/sci-diagram-pptx/actions/workflows/validate.yml)
-[![license](https://img.shields.io/badge/license-Apache--2.0-4C6FFF?style=flat-square)](LICENSE)
-[![Codex Skill](https://img.shields.io/badge/Codex-Agent%20Skill-111827?style=flat-square)](skills/sci-diagram-pptx/SKILL.md)
+[![validation](https://img.shields.io/github/actions/workflow/status/SciToolsmith/sci-diagram-pptx/validate.yml?branch=main&style=flat-square&label=validation)](https://github.com/SciToolsmith/sci-diagram-pptx/actions/workflows/validate.yml) [![license](https://img.shields.io/badge/license-Apache--2.0-4C6FFF?style=flat-square)](LICENSE) [![Codex Skill](https://img.shields.io/badge/Codex-Agent%20Skill-111827?style=flat-square)](skills/sci-diagram-pptx/SKILL.md)
 
 [案例](#gallery) · [安装](#install) · [使用](#usage) · [适用边界](#scope) · [English](#english)
 
 </div>
-
-保留文字、公式、层级和拓扑；不以整页图片伪装“可编辑”。
 
 <a id="gallery"></a>
 
@@ -30,7 +26,7 @@
   <img src="docs/cases/global-innovation-chain-framework.png" width="430" alt="全球创新产业链研究框架：纵向研究阶段、中央多层研究内容与右侧研究方法组成的可编辑科研框架图">
 </a>
 
-[查看大图](docs/cases/global-innovation-chain-framework.png) · [下载可编辑 PPTX](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/global-innovation-chain-framework-editable.pptx)
+[下载可编辑 PPTX](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/global-innovation-chain-framework-editable.pptx)
 
 </div>
 
@@ -53,12 +49,10 @@
   </tr>
   <tr>
     <td align="center">
-      <a href="docs/cases/load-cycle-model.png">查看大图</a> ·
-      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/load-cycle-model-editable.pptx">下载可编辑 PPTX</a>
+      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/load-cycle-model-editable.pptx">下载 PPTX</a>
     </td>
     <td align="center">
-      <a href="docs/cases/adaptive-fir-mode-decomposition.png">查看大图</a> ·
-      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/adaptive-fir-mode-decomposition-flowchart-editable.pptx">下载可编辑 PPTX</a>
+      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/adaptive-fir-mode-decomposition-flowchart-editable.pptx">下载 PPTX</a>
     </td>
   </tr>
 </table>
@@ -122,8 +116,6 @@ $sci-diagram-pptx 把这张科研流程图忠实重建为原生可编辑 PPTX，
 
 - **第 1 页**：原生可编辑重建图。
 - **第 2 页**：源图对照页。
-
-公开案例为保护输入素材，仅发布第 1 页。
 
 ```text
 确认目标 → 梳理结构 → 原生重建 → 渲染检查 → 必要时集中修复一次 → 交付
