@@ -21,6 +21,7 @@ A = "http://schemas.openxmlformats.org/drawingml/2006/main"
 M = "http://schemas.openxmlformats.org/officeDocument/2006/math"
 R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 REL = "http://schemas.openxmlformats.org/package/2006/relationships"
+CT = "http://schemas.openxmlformats.org/package/2006/content-types"
 W, H = 9_144_000, 5_143_500
 PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
@@ -43,6 +44,49 @@ def tree(children: str = "") -> str:
         '</p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/>'
         '<a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>'
         + children + "</p:spTree>"
+    )
+
+
+def group(
+    children: str,
+    width: int = W,
+    height: int = H,
+    child_width: int | None = None,
+    child_height: int | None = None,
+    x: int = 0,
+    y: int = 0,
+    rotation: int = 0,
+) -> str:
+    child_width = child_width or width
+    child_height = child_height or height
+    return (
+        '<p:grpSp><p:nvGrpSpPr><p:cNvPr id="20" name="group_020"/>'
+        '<p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr>'
+        f'<a:xfrm rot="{rotation}"><a:off x="{x}" y="{y}"/>'
+        f'<a:ext cx="{width}" cy="{height}"/>'
+        f'<a:chOff x="0" y="0"/><a:chExt cx="{child_width}" cy="{child_height}"/>'
+        f'</a:xfrm></p:grpSpPr>{children}</p:grpSp>'
+    )
+
+
+def content_types(slide_count: int) -> str:
+    slide_overrides = "".join(
+        '<Override '
+        f'PartName="/ppt/slides/slide{index}.xml" '
+        'ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>'
+        for index in range(1, slide_count + 1)
+    )
+    return (
+        f'<Types xmlns="{CT}">'
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        '<Default Extension="xml" ContentType="application/xml"/>'
+        '<Default Extension="png" ContentType="image/png"/>'
+        '<Override PartName="/ppt/presentation.xml" '
+        'ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>'
+        f'{slide_overrides}'
+        '<Override PartName="/ppt/slideLayouts/slideLayout1.xml" '
+        'ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>'
+        '</Types>'
     )
 
 
@@ -153,6 +197,38 @@ def make_deck(root: Path, variant: str = "good") -> tuple[Path, Path]:
         slide1_children += picture(3, "rId2", 0, 0, W, H)
         slide1_rels.append(("rId2", f"{R}/image", "../media/full.png", False))
         media["ppt/media/full.png"] = PNG
+    elif variant == "grouped_full_image":
+        child_width, child_height = W // 10, H // 10
+        slide1_children += group(
+            picture(3, "rId2", 0, 0, child_width, child_height),
+            child_width=child_width,
+            child_height=child_height,
+        )
+        slide1_rels.append(("rId2", f"{R}/image", "../media/grouped-full.png", False))
+        media["ppt/media/grouped-full.png"] = PNG
+    elif variant == "rotated_thin_group_image":
+        group_width, group_height = int(W * 0.9), int(H * 0.2)
+        slide1_children += group(
+            picture(3, "rId2", 0, 0, group_width, group_height),
+            width=group_width,
+            height=group_height,
+            x=int(W * 0.05),
+            y=int(H * 0.4),
+            rotation=45 * 60000,
+        )
+        slide1_rels.append(("rId2", f"{R}/image", "../media/rotated-thin.png", False))
+        media["ppt/media/rotated-thin.png"] = PNG
+    elif variant == "missing_media":
+        slide1_children += picture(3, "rId2", W // 10, H // 10, W // 10, H // 10)
+        slide1_rels.append(("rId2", f"{R}/image", "../media/missing.png", False))
+    elif variant == "wrong_media_type":
+        slide1_children += picture(3, "rId2", W // 10, H // 10, W // 10, H // 10)
+        slide1_rels.append(("rId2", f"{R}/image", "../media/not-image.png", False))
+        media["ppt/media/not-image.png"] = PNG
+    elif variant == "missing_blip_relationship":
+        slide1_children += picture(3, "rId404", W // 10, H // 10, W // 10, H // 10)
+    elif variant == "escaping_relationship":
+        slide1_rels.append(("rId2", f"{R}/image", "../../../outside.png", False))
     elif variant == "tiles":
         boxes = [
             (0, 0, W // 2, H // 2), (W // 2, 0, W - W // 2, H // 2),
@@ -182,11 +258,35 @@ def make_deck(root: Path, variant: str = "good") -> tuple[Path, Path]:
     embedded_source = b"different" if variant == "mismatch" else PNG
     deck = root / f"{variant}.pptx"
     with zipfile.ZipFile(deck, "w", zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr("[Content_Types].xml", '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>')
+        declared_types = content_types(1 if one_slide else 2)
+        if variant == "macro":
+            declared_types = declared_types.replace(
+                "</Types>",
+                '<Override PartName="/ppt/vbaProject.bin" '
+                'ContentType="application/vnd.ms-office.vbaProject"/></Types>',
+            )
+        elif variant == "wrong_media_type":
+            declared_types = declared_types.replace(
+                "</Types>",
+                '<Override PartName="/ppt/media/not-image.png" '
+                'ContentType="application/xml"/></Types>',
+            )
+        archive.writestr(
+            "[Content_Types].xml",
+            f'<Types xmlns="{CT}"/>' if variant == "bad_content_types" else declared_types,
+        )
+        if variant != "missing_root_relationship":
+            archive.writestr("_rels/.rels", rels([
+                ("rId1", f"{R}/officeDocument", "ppt/presentation.xml", False),
+            ]))
         archive.writestr("ppt/presentation.xml", presentation)
         archive.writestr("ppt/_rels/presentation.xml.rels", rels(presentation_rels))
         archive.writestr("ppt/slides/slide1.xml", slide1)
         archive.writestr("ppt/slides/_rels/slide1.xml.rels", rels(slide1_rels))
+        archive.writestr(
+            "ppt/slideLayouts/slideLayout1.xml",
+            f'<p:sldLayout xmlns:p="{P}" xmlns:a="{A}"><p:cSld>{tree()}</p:cSld></p:sldLayout>',
+        )
         if not one_slide:
             archive.writestr("ppt/slides/slide2.xml", slide2)
             archive.writestr("ppt/slides/_rels/slide2.xml.rels", rels([
@@ -303,6 +403,14 @@ class CheckPptxTests(unittest.TestCase):
         report = self.report("full_image")
         self.assertIn("slide1.not_flattened", self.ids(report))
 
+    def test_grouped_full_slide_picture_fails(self) -> None:
+        report = self.report("grouped_full_image")
+        self.assertIn("slide1.not_flattened", self.ids(report))
+
+    def test_rotated_thin_group_picture_does_not_fail_flattening(self) -> None:
+        report = self.report("rotated_thin_group_image")
+        self.assertEqual(report["status"], "PASS", report["hard_failures"])
+
     def test_picture_tile_mosaic_fails(self) -> None:
         report = self.report("tiles")
         self.assertIn("slide1.not_flattened", self.ids(report))
@@ -322,6 +430,30 @@ class CheckPptxTests(unittest.TestCase):
     def test_external_media_fails(self) -> None:
         report = self.report("external_media")
         self.assertIn("package.no_unsafe_embeds", self.ids(report))
+
+    def test_missing_internal_media_target_fails_package_readability(self) -> None:
+        report = self.report("missing_media")
+        self.assertIn("package.readable", self.ids(report))
+
+    def test_missing_blip_relationship_fails_package_readability(self) -> None:
+        report = self.report("missing_blip_relationship")
+        self.assertIn("package.readable", self.ids(report))
+
+    def test_image_relationship_to_non_image_part_fails_package_readability(self) -> None:
+        report = self.report("wrong_media_type")
+        self.assertIn("package.readable", self.ids(report))
+
+    def test_escaping_internal_relationship_fails_package_readability(self) -> None:
+        report = self.report("escaping_relationship")
+        self.assertIn("package.readable", self.ids(report))
+
+    def test_invalid_content_types_fails_package_readability(self) -> None:
+        report = self.report("bad_content_types")
+        self.assertIn("package.readable", self.ids(report))
+
+    def test_missing_root_office_document_relationship_fails(self) -> None:
+        report = self.report("missing_root_relationship")
+        self.assertIn("package.readable", self.ids(report))
 
     def test_legacy_one_slide_with_source_warns_missing_reference_slide(self) -> None:
         report = self.report("one_slide")
@@ -358,8 +490,71 @@ class CheckPptxTests(unittest.TestCase):
     def test_parser_accepts_require_single_slide(self) -> None:
         args = check_pptx.build_parser().parse_args([
             "deck.pptx", "--source", "source.png", "--require-single-slide",
+            "--build-source", "build.mjs",
         ])
         self.assertTrue(args.require_single_slide)
+        self.assertEqual(args.build_source, Path("build.mjs"))
+
+    def test_portable_build_source_passes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            deck, source = make_deck(root, "one_slide")
+            build = root / "build.mjs"
+            build.write_text(
+                'import { Presentation } from "@oai/artifact-tool";\n'
+                'import path from "node:path";\n'
+                'console.log(Presentation, path.basename(import.meta.url));\n',
+                encoding="utf-8",
+            )
+            report = check_pptx.inspect_package(
+                deck, source, require_single_slide=True, build_source=build
+            )
+            self.assertEqual(report["status"], "PASS", report["hard_failures"])
+            self.assertEqual(self.check(report, "build_source.portable")["status"], "PASS")
+
+    def test_machine_path_and_relative_helper_fail_build_source(self) -> None:
+        machine_path = "/" + "Users/example/source.png"
+        linux_path = "/" + "home/example/source.png"
+        for content in (
+            f'const source = "{machine_path}";\n',
+            f'const source = "{linux_path}";\n',
+            'import helper from "./local-helper.mjs";\n',
+            'import fs from "fs";\n',
+        ):
+            with self.subTest(content=content):
+                with tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    deck, source = make_deck(root, "one_slide")
+                    build = root / "build.mjs"
+                    build.write_text(content, encoding="utf-8")
+                    report = check_pptx.inspect_package(
+                        deck, source, require_single_slide=True, build_source=build
+                    )
+                    self.assertIn("build_source.portable", self.ids(report))
+
+    def test_non_utf8_build_source_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            deck, source = make_deck(root, "one_slide")
+            build = root / "build.mjs"
+            build.write_bytes(b"\xff\xfe")
+            report = check_pptx.inspect_package(
+                deck, source, require_single_slide=True, build_source=build
+            )
+            self.assertIn("build_source.portable", self.ids(report))
+
+    def test_high_confidence_secret_fails_build_source(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            deck, source = make_deck(root, "one_slide")
+            build = root / "build.mjs"
+            build.write_text(
+                'const key = "-----BEGIN PRIVATE KEY-----";\n', encoding="utf-8"
+            )
+            report = check_pptx.inspect_package(
+                deck, source, require_single_slide=True, build_source=build
+            )
+            self.assertIn("build_source.portable", self.ids(report))
 
     def test_non_zip_fails(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
