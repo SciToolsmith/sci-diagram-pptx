@@ -1,11 +1,11 @@
 ---
 name: sci-diagram-pptx
-description: Reconstruct or repair user-provided scientific and academic schematics as visually faithful, native editable single-slide PowerPoint (.pptx) files with executable build source; also inspect existing PPTX files for meaningful fidelity and editability defects. Use for 复刻、还原、临摹、修复或检查科研框架图、技术路线图、科研流程图、机制图、算法流程图、科研系统结构图、学术概念模型、结构化科研信息图，以及包含数学符号或公式的学术图示. Do not use for quantitative data visualizations or statistical plots whose meaning is encoded by axes, scales, legends, or data-driven geometry; general business diagrams; organization charts; ordinary deck design; OCR-only extraction; or simple image placement.
+description: Reconstruct or repair user-provided scientific and academic schematics as visually faithful, native editable PowerPoint (.pptx) files with executable build source; also inspect existing PPTX files for meaningful fidelity and editability defects. Use for 复刻、还原、临摹、修复或检查科研框架图、技术路线图、科研流程图、机制图、算法流程图、科研系统结构图、学术概念模型、结构化科研信息图，以及包含数学符号或公式的学术图示. Do not use for quantitative data visualizations or statistical plots whose meaning is encoded by axes, scales, legends, or data-driven geometry; general business diagrams; organization charts; ordinary deck design; OCR-only extraction; or simple image placement.
 ---
 
 # SciDiagram PPTX
 
-Rebuild the supplied scientific schematic as a practical, editable PowerPoint. Reproduce the source; do not redesign it unless the user explicitly asks.
+Reproduce the supplied scientific schematic; do not redesign it unless the user explicitly asks.
 
 ## Preserve what matters
 
@@ -22,12 +22,20 @@ Use this skill when meaning is carried mainly by boxes, labels, formulas, nested
 
 Never silently rewrite wording, simplify topology, recolor the figure, invent a cycle from visual layout, or reverse a relationship because another design appears clearer.
 
-## Select one authoring runtime
+## Choose one task route
 
-Keep one user workflow and choose one host-provided authoring backend before writing `build.mjs`:
+- **Reconstruction**: an image or selected image panel becomes a new single-slide editable PPTX and the standard source/PPTX/build bundle.
+- **Repair**: an existing PPTX is corrected without changing unrelated slides; preserve the original and return a new output with executable build source.
+- **Inspection**: an existing PPTX is diagnosed without modification, build source, or a delivery folder.
 
-1. Honor an explicit `SCI_DIAGRAM_RUNTIME=artifact-tool` or `SCI_DIAGRAM_RUNTIME=pptxgenjs` value.
-2. When unset, prefer `artifact-tool` only when the installed OpenAI `Presentations` runtime is available; otherwise select `pptxgenjs` only when its package and server render dependencies are available.
+Do not drift from one route into another. If a request mixes them, complete the named deliverable and report any separate inspection findings briefly.
+
+## Select a runtime only when authoring
+
+Choose one host-provided backend before writing `build.mjs`:
+
+1. For Reconstruction, honor an explicit `SCI_DIAGRAM_RUNTIME=artifact-tool` or `SCI_DIAGRAM_RUNTIME=pptxgenjs` value. When unset, prefer `artifact-tool` when the installed OpenAI `Presentations` runtime is available; otherwise select `pptxgenjs` only when its package and server render dependencies are ready.
+2. Repair requires a backend that can import and preserve the existing deck. Use `artifact-tool` when that capability is available. The bundled PptxGenJS phase-one route does not repair an existing deck; stop with that limitation or, with user approval, change the task to standalone slide Reconstruction.
 3. Run the bundled runtime probe before authoring when availability is uncertain. Stop with a clear dependency error if the selected backend is unavailable.
 4. Do not switch backend after `build.mjs` has been written, and do not place both backends in one delivered script.
 
@@ -36,9 +44,9 @@ Read exactly one runtime reference:
 - [runtime-artifact-tool.md](references/runtime-artifact-tool.md) for Codex desktop and the OpenAI `Presentations` runtime;
 - [runtime-pptxgenjs.md](references/runtime-pptxgenjs.md) for a host-configured Linux/Node.js deployment.
 
-The reconstruction contract, object semantics, review limits, and delivery are identical. Runtime-specific rendering differences do not justify changing labels, topology, or editability.
+Inspection does not select an authoring backend or create `build.mjs`; use the available host renderer plus the bundled checker.
 
-## Follow one reconstruction workflow
+## Reconstruction contract
 
 ### 1. Inspect and map
 
@@ -72,7 +80,7 @@ Treat custom geometry and freeforms as visual plates with overlaid standard text
 
 Preserve the source aspect ratio and derive placement from one consistent source-to-slide transform. Create exactly one slide: the native editable reconstruction. Do not add a source-reference or hidden tracing slide.
 
-Write `build.mjs` before export and execute that exact file to create the delivered `editable.pptx`. It may import only the selected authoring package and `node:`-prefixed built-ins; keep reconstruction data in the file and do not import local helper modules. Resolve every companion relative to `import.meta.url`. State the selected runtime, tested version, and run command in the header. Write `editable.pptx` beside the script and refuse silent overwrite.
+Write `build.mjs` before export and execute that exact file to create the delivered `editable.pptx`. Import exactly one selected authoring package and only the safe built-ins accepted by the checker: `node:fs`, `node:fs/promises`, `node:path`, and `node:url`. Keep reconstruction data in the file; do not use dynamic imports, `require`, `createRequire`, or local helper modules. Resolve every companion relative to `import.meta.url`. State the selected runtime, tested version, and run command in the header. Write `editable.pptx` beside the script and refuse silent overwrite.
 
 Read other references only when their trigger applies:
 
@@ -82,30 +90,22 @@ Read other references only when their trigger applies:
 
 Use one focused capability probe when necessary. Use a close native approximation without pausing when the difference is cosmetic. Ask first when a fallback changes scientific meaning, formula content, arrow topology, or converts a substantial meaning-bearing region to raster.
 
-### 3. Review once, then correct once if needed
+### 3. Render and check
 
 After the first export, run one render through the selected runtime and one lightweight package check. Compare the render beside the source at normal size; enlarge dense text, formulas, connector crossings, arrowheads, and raster insets only where needed. Confirm every planned edge exists once with the correct endpoint, direction, bidirectionality, label, and route. Inspect each inset at 100% for framing and readable evidence.
 
 ```bash
 "$SCI_DIAGRAM_PYTHON" "$SCI_DIAGRAM_SKILL_DIR/scripts/check_pptx.py" \
   "$FINAL_PPTX" --source "$DELIVERY_SOURCE" --build-source "$BUILD_MJS" \
-  --require-single-slide \
+  --require-single-slide --slide 1 \
   --output "$BUILD_DIR/check.json"
 ```
 
 Collect all blocking defects before editing: incorrect or guessed content; missing, extra, or reversed relationships; wrong nesting or line semantics; unreadable critical insets; clipping, overflow, serious overlap, or off-canvas content; flattened structure; corrupt export; or a package hard failure.
 
-If blockers exist, repair them together in one focused pass, then render and run the same package check once more. Continue after that only for a named blocking defect. Warnings require judgment, not automatic rejection; cosmetic differences are not blockers.
+If blockers exist, repair them together in one focused pass, then render and run the same package check once more. After that second check, stop and report any named remaining blocker. Continue only when the user explicitly asks.
 
-### 4. Use native PowerPoint only for compatibility risk
-
-Do not add a routine UI check to every task. When a real local PowerPoint installation is accessible, open or export the final candidate once only if the file contains a compatibility risk—custom/freeform labels, Office Math, dense or mixed-script typography, true vertical or rotated text, a prior repair prompt—or the user explicitly asks for native or cross-platform validation. Check only for a repair prompt, missing content, material reflow or clipping, displaced labels, and broken formulas.
-
-LibreOffice rendering is a server smoke check, not proof of PowerPoint identity. State the actual validation environment and do not create Windows/macOS variants unless a material blocker is reproduced and each named result can be tested there.
-
-### 5. Deliver the executable folder
-
-For image-to-PPTX reconstruction, return:
+### 4. Deliver the standard folder
 
 ```text
 <diagram-name>_editable/
@@ -118,17 +118,46 @@ The source is the unchanged upload, the PPTX contains exactly one native editabl
 
 Validate the staged folder before handoff: compare source bytes, confirm the staged script was executed, and reject machine-local paths, secrets, or imports of unshipped helpers. Keep checks, renders, probes, temporary crops, caches, and intermediate exports internal. Do not add a README, manifest, preview, ZIP, `node_modules`, or package-manager files unless requested. Include `assets/` only for separately supplied companions required by the build. For several independent images, create one folder per target.
 
-Return the folder with a short note stating the authoring runtime, render and structure checks performed, any risk-triggered native PowerPoint check, and any material approximation or local raster inset.
+## Repair contract
 
-## Repair or inspect an existing PPTX
+Identify the exact slide number or numbers and defect before authoring; ask only when the target is unclear. Keep the original PPTX untouched and preserve unrelated slides, masters, layouts, notes, and order. Prefer a self-contained rebuild. If `build.mjs` must read the original deck, include a byte-for-byte `input-original.pptx` beside it and resolve that dependency relative to `import.meta.url`. Include a supplied reference image only when the repair or its build actually depends on it.
 
-For repair, keep the original untouched and write a new output. Prefer a self-contained rebuild. If the script depends on the original deck, include a byte-for-byte copy such as `input-original.pptx` and resolve it relatively; include a supplied reference image too. Do not describe a dependency-bearing repair folder as the standard three-file image bundle.
+Return a repair folder containing `editable.pptx`, the exact executed `build.mjs`, and only the adjacent input dependencies required to rerun it. Do not describe this as the standard three-file Reconstruction bundle.
 
-For inspection only, do not modify the file or create a delivery folder. Render the relevant slides with the available host runtime, then run the checker without source or single-slide assertions:
+Render the repaired result and deep-check each repaired slide separately. Do not pass `--source` or `--require-single-slide` merely because the repair used a visual reference or the original deck happens to contain one slide:
 
 ```bash
+TARGET_SLIDE=3  # replace with the repaired slide's 1-based number
 "$SCI_DIAGRAM_PYTHON" "$SCI_DIAGRAM_SKILL_DIR/scripts/check_pptx.py" \
-  "$INPUT_PPTX" --output "$BUILD_DIR/check.json"
+  "$REPAIRED_PPTX" --build-source "$BUILD_MJS" --slide "$TARGET_SLIDE" \
+  --output "$BUILD_DIR/check-slide-$TARGET_SLIDE.json"
 ```
 
-Report meaningful content, topology, editability, and package discrepancies. If a required native behavior is unavailable, state the exact limitation and narrowest practical alternative; do not loop or hide uncertainty in invisible objects.
+For several repaired slides, run the command once per repaired slide. Collect blockers across those results, make at most one focused correction pass, rerun only the affected slide checks, then stop and report any remaining blocker unless the user explicitly asks to continue.
+
+## Inspection contract
+
+Do not modify the file, select an authoring backend, create `build.mjs`, or create a delivery folder. If the deck has one slide, inspect slide 1. For a multi-slide deck, use the slide or slides named by the user; if none is named and the target is unclear, ask instead of reviewing the full deck by default.
+
+Render each relevant slide and run one deep check per relevant slide. If the available renderer exports the whole deck, inspect only the relevant rendered outputs. The slide number is 1-based:
+
+```bash
+TARGET_SLIDE=3  # replace with the inspected slide's 1-based number
+"$SCI_DIAGRAM_PYTHON" "$SCI_DIAGRAM_SKILL_DIR/scripts/render_pptx.py" \
+  "$INPUT_PPTX" --output-dir "$BUILD_DIR/rendered"
+"$SCI_DIAGRAM_PYTHON" "$SCI_DIAGRAM_SKILL_DIR/scripts/check_pptx.py" \
+  "$INPUT_PPTX" --slide "$TARGET_SLIDE" \
+  --output "$BUILD_DIR/check-slide-$TARGET_SLIDE.json"
+```
+
+If LibreOffice or `pdftoppm` is unavailable, use the host's existing renderer and state which renderer was used; do not select an authoring backend merely to inspect a deck.
+
+Report meaningful content, topology, editability, and package discrepancies. Do not loop, silently repair, or hide uncertainty in invisible objects.
+
+## Compatibility check
+
+Do not add a routine UI check to every task. When a real local PowerPoint installation is accessible, open or export the final authored candidate once only if it contains a compatibility risk—custom/freeform labels, Office Math, dense or mixed-script typography, true vertical or rotated text, a prior repair prompt—or the user explicitly asks for native or cross-platform validation. Check only for a repair prompt, missing content, material reflow or clipping, displaced labels, and broken formulas.
+
+LibreOffice rendering is a server smoke check, not proof of PowerPoint identity. State the actual validation environment and do not create Windows/macOS variants unless a material blocker is reproduced and each named result can be tested there.
+
+For Reconstruction or Repair, return a short note stating the authoring runtime, render and structure checks performed, any risk-triggered native PowerPoint check, and any material approximation or local raster inset. Inspection returns findings only.
