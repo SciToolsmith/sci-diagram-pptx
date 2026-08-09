@@ -6,8 +6,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import posixpath
+import re
 import sys
 import zipfile
 from pathlib import Path
@@ -21,12 +23,29 @@ NS = {
     "p": "http://schemas.openxmlformats.org/presentationml/2006/main",
     "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
     "rel": "http://schemas.openxmlformats.org/package/2006/relationships",
+    "ct": "http://schemas.openxmlformats.org/package/2006/content-types",
 }
 R_ID = f"{{{NS['r']}}}id"
 R_EMBED = f"{{{NS['r']}}}embed"
+R_LINK = f"{{{NS['r']}}}link"
 REL_NS = NS["rel"]
 FONT_SCRIPTS = ("latin", "ea", "cs")
 AUTOFIT_NAMES = {"noAutofit", "normAutofit", "spAutoFit"}
+LOCAL_PATH_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9._-])(?:/(?:Users|Volumes|home)(?:/|\b)|/(?:private/)?tmp(?:/|\b)|[A-Za-z]:[\\/])"
+)
+IMPORT_PATTERNS = (
+    re.compile(r"(?m)^\s*import\s+(?:[^;\n]*?\s+from\s+)?['\"]([^'\"]+)['\"]"),
+    re.compile(r"(?m)^\s*export\s+[^;\n]*?\s+from\s+['\"]([^'\"]+)['\"]"),
+    re.compile(r"\bimport\s*\(\s*['\"]([^'\"]+)['\"]\s*\)"),
+    re.compile(r"\brequire\s*\(\s*['\"]([^'\"]+)['\"]\s*\)"),
+)
+SECRET_PATTERNS = (
+    re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
+    re.compile(r"\b(?:sk|rk)-[A-Za-z0-9_-]{20,}\b"),
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
+)
 
 
 class CheckError(RuntimeError):
@@ -93,6 +112,199 @@ def relationships(archive: zipfile.ZipFile, owner: str) -> dict[str, dict[str, o
     return result
 
 
+def relationship_owner(part: str) -> str | None:
+    """Return the package part that owns an OPC relationship part."""
+    if part == "_rels/.rels":
+        return ""
+    marker = "/_rels/"
+    if marker not in part or not part.endswith(".rels"):
+        return None
+    folder, name = part.rsplit(marker, 1)
+    if not name or name == ".rels":
+        return None
+    return posixpath.join(folder, name[:-5])
+
+
+def validate_relationship_targets(archive: zipfile.ZipFile) -> None:
+    """Reject malformed, orphaned, escaping, or dangling internal relationships."""
+    names = set(archive.namelist())
+    for rel_part in sorted(name for name in names if name.endswith(".rels")):
+        owner = relationship_owner(rel_part)
+        if owner is None:
+            raise CheckError(f"invalid relationship part location: {rel_part}")
+        if owner and owner not in names:
+            raise CheckError(f"relationship part has no owning package part: {rel_part}")
+        root = parse_xml(archive, rel_part)
+        if root.tag != f"{{{REL_NS}}}Relationships":
+            raise CheckError(f"invalid relationship root element in {rel_part}")
+        identifiers: set[str] = set()
+        for node in root.findall(f"{{{REL_NS}}}Relationship"):
+            identifier = node.get("Id")
+            target = node.get("Target")
+            kind = node.get("Type")
+            if not identifier or not target or not kind:
+                raise CheckError(f"incomplete relationship in {rel_part}")
+            if identifier in identifiers:
+                raise CheckError(f"duplicate relationship Id {identifier!r} in {rel_part}")
+            identifiers.add(identifier)
+            if (node.get("TargetMode") or "").lower() == "external":
+                continue
+            resolved = resolve_target(owner, target)
+            if resolved is None:
+                raise CheckError(
+                    f"internal relationship escapes the package: {rel_part} -> {target}"
+                )
+            if resolved not in names:
+                raise CheckError(
+                    f"internal relationship target is missing: {rel_part} -> {resolved}"
+                )
+
+
+def content_type_map(archive: zipfile.ZipFile) -> tuple[dict[str, str], dict[str, str]]:
+    root = parse_xml(archive, "[Content_Types].xml")
+    if root.tag != f"{{{NS['ct']}}}Types":
+        raise CheckError("invalid [Content_Types].xml root element")
+    defaults: dict[str, str] = {}
+    overrides: dict[str, str] = {}
+    for node in root.findall("ct:Default", NS):
+        extension = (node.get("Extension") or "").lower()
+        content_type = node.get("ContentType") or ""
+        if not extension or not content_type or extension in defaults:
+            raise CheckError("invalid or duplicate Default in [Content_Types].xml")
+        defaults[extension] = content_type
+    for node in root.findall("ct:Override", NS):
+        part_name = (node.get("PartName") or "").lstrip("/")
+        content_type = node.get("ContentType") or ""
+        if (
+            not part_name
+            or not content_type
+            or resolve_target("", part_name) != part_name
+            or part_name in overrides
+        ):
+            raise CheckError("invalid or duplicate Override in [Content_Types].xml")
+        overrides[part_name] = content_type
+    return defaults, overrides
+
+
+def package_content_type(
+    part: str,
+    defaults: dict[str, str],
+    overrides: dict[str, str],
+) -> str | None:
+    if part in overrides:
+        return overrides[part]
+    extension = posixpath.basename(part).rsplit(".", 1)[-1].lower()
+    return defaults.get(extension)
+
+
+def validate_content_types(archive: zipfile.ZipFile) -> None:
+    names = set(archive.namelist())
+    defaults, overrides = content_type_map(archive)
+    for part in sorted(
+        name for name in names
+        if name != "[Content_Types].xml" and not name.endswith("/")
+    ):
+        if package_content_type(part, defaults, overrides) is None:
+            raise CheckError(f"package part has no content type declaration: {part}")
+
+    presentation_type = package_content_type("ppt/presentation.xml", defaults, overrides)
+    if presentation_type != (
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"
+    ):
+        raise CheckError("ppt/presentation.xml has an invalid or missing content type")
+    slide_type = "application/vnd.openxmlformats-officedocument.presentationml.slide+xml"
+    for part in sorted(
+        name for name in names
+        if name.startswith("ppt/slides/") and name.endswith(".xml")
+    ):
+        if package_content_type(part, defaults, overrides) != slide_type:
+            raise CheckError(f"slide part has an invalid or missing content type: {part}")
+
+
+def validate_root_office_document(archive: zipfile.ZipFile) -> None:
+    root_rels = relationships(archive, "")
+    office_documents = [
+        relation for relation in root_rels.values()
+        if str(relation.get("type", "")).endswith("/officeDocument")
+    ]
+    if len(office_documents) != 1:
+        raise CheckError("package root must contain exactly one officeDocument relationship")
+    relation = office_documents[0]
+    if relation.get("external") or relation.get("resolved") != "ppt/presentation.xml":
+        raise CheckError("package root officeDocument relationship does not resolve to ppt/presentation.xml")
+
+
+def validate_slide_blips(
+    archive: zipfile.ZipFile,
+    slide_part: str,
+    slide: ET.Element,
+) -> None:
+    slide_rels = relationships(archive, slide_part)
+    defaults, overrides = content_type_map(archive)
+    for blip in slide.findall(".//a:blip", NS):
+        references = [
+            (attribute, blip.get(attribute))
+            for attribute in (R_EMBED, R_LINK)
+            if blip.get(attribute)
+        ]
+        if not references:
+            raise CheckError(f"image blip has no relationship in {slide_part}")
+        for _, identifier in references:
+            relation = slide_rels.get(identifier or "")
+            if relation is None or not str(relation.get("type", "")).endswith("/image"):
+                raise CheckError(
+                    f"image blip has an unresolved or non-image relationship in {slide_part}: {identifier}"
+                )
+            if not relation.get("external"):
+                target = relation.get("resolved")
+                if not isinstance(target, str) or target not in archive.namelist():
+                    raise CheckError(
+                        f"image blip target is missing in {slide_part}: {identifier}"
+                    )
+                content_type = package_content_type(target, defaults, overrides) or ""
+                if not content_type.lower().startswith("image/"):
+                    raise CheckError(
+                        f"image blip target has a non-image content type in {slide_part}: {target}"
+                    )
+
+
+def validate_build_source(path: Path) -> dict[str, object]:
+    try:
+        source_bytes = path.read_bytes()
+    except OSError as exc:
+        raise CheckError(f"cannot read build source: {exc}") from exc
+    try:
+        text = source_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise CheckError("build source is not valid UTF-8") from exc
+    if not text.strip():
+        raise CheckError("build source is empty")
+    if LOCAL_PATH_PATTERN.search(text):
+        raise CheckError("build source contains a machine-local absolute path")
+    if any(pattern.search(text) for pattern in SECRET_PATTERNS):
+        raise CheckError("build source contains high-confidence secret material")
+
+    imports = sorted({
+        match.group(1)
+        for pattern in IMPORT_PATTERNS
+        for match in pattern.finditer(text)
+    })
+    unsupported = [
+        specifier for specifier in imports
+        if specifier != "@oai/artifact-tool" and not specifier.startswith("node:")
+    ]
+    if unsupported:
+        raise CheckError(
+            "build source imports an unshipped or unsupported helper: "
+            + ", ".join(unsupported)
+        )
+    return check_item(
+        "build_source.portable", "PASS",
+        "Build source is non-empty UTF-8 and contains no machine-local path, high-confidence secret, or unshipped helper import",
+        path=str(path), bytes=len(source_bytes), imports=imports,
+    )
+
+
 def integer(node: ET.Element | None, attribute: str) -> int | None:
     if node is None:
         return None
@@ -116,6 +328,114 @@ def object_box(node: ET.Element) -> tuple[int, int, int, int] | None:
         return None
     x, y, width, height = values
     return int(x), int(y), int(width), int(height)
+
+
+def rotated_box(
+    box: tuple[float, float, float, float],
+    angle_degrees: float,
+    center: tuple[float, float] | None = None,
+) -> tuple[float, float, float, float]:
+    if not angle_degrees % 360:
+        return box
+    x, y, width, height = box
+    center_x, center_y = center or (x + width / 2, y + height / 2)
+    radians = math.radians(angle_degrees)
+    cosine, sine = math.cos(radians), math.sin(radians)
+    corners = []
+    for point_x, point_y in (
+        (x, y), (x + width, y), (x + width, y + height), (x, y + height)
+    ):
+        delta_x, delta_y = point_x - center_x, point_y - center_y
+        corners.append((
+            center_x + delta_x * cosine - delta_y * sine,
+            center_y + delta_x * sine + delta_y * cosine,
+        ))
+    left = min(point[0] for point in corners)
+    top = min(point[1] for point in corners)
+    right = max(point[0] for point in corners)
+    bottom = max(point[1] for point in corners)
+    return left, top, right - left, bottom - top
+
+
+def image_box(
+    node: ET.Element,
+    parents: dict[ET.Element, ET.Element],
+) -> tuple[tuple[int, int, int, int], float] | None:
+    """Resolve an image-bearing object's box through standard nested group transforms."""
+    raw_box = object_box(node)
+    if raw_box is None:
+        return None
+    box: tuple[float, float, float, float] = tuple(float(value) for value in raw_box)
+    transformed_area = abs(box[2] * box[3])
+
+    own_transform = node.find("./p:spPr/a:xfrm", NS)
+    if own_transform is None:
+        own_transform = node.find("./p:xfrm", NS)
+    own_rotation = integer(own_transform, "rot") or 0
+    if own_rotation:
+        box = rotated_box(box, own_rotation / 60000)
+
+    ancestor = parents.get(node)
+    while ancestor is not None:
+        if ancestor.tag == f"{{{NS['p']}}}grpSp":
+            transform = ancestor.find("./p:grpSpPr/a:xfrm", NS)
+            offset = transform.find("a:off", NS) if transform is not None else None
+            extent = transform.find("a:ext", NS) if transform is not None else None
+            child_offset = transform.find("a:chOff", NS) if transform is not None else None
+            child_extent = transform.find("a:chExt", NS) if transform is not None else None
+            values = (
+                integer(offset, "x"), integer(offset, "y"),
+                integer(extent, "cx"), integer(extent, "cy"),
+                integer(child_offset, "x"), integer(child_offset, "y"),
+                integer(child_extent, "cx"), integer(child_extent, "cy"),
+            )
+            if any(value is None for value in values):
+                return None
+            group_x, group_y, group_width, group_height = values[:4]
+            child_x, child_y, child_width, child_height = values[4:]
+            if not child_width or not child_height:
+                return None
+            transformed_area *= abs(
+                (group_width / child_width) * (group_height / child_height)
+            )
+            left = (box[0] - child_x) / child_width
+            top = (box[1] - child_y) / child_height
+            right = (box[0] + box[2] - child_x) / child_width
+            bottom = (box[1] + box[3] - child_y) / child_height
+            if (transform.get("flipH") or "").lower() in {"1", "true"}:
+                left, right = 1 - right, 1 - left
+            if (transform.get("flipV") or "").lower() in {"1", "true"}:
+                top, bottom = 1 - bottom, 1 - top
+            box = (
+                group_x + left * group_width,
+                group_y + top * group_height,
+                (right - left) * group_width,
+                (bottom - top) * group_height,
+            )
+            group_rotation = integer(transform, "rot") or 0
+            if group_rotation:
+                box = rotated_box(
+                    box,
+                    group_rotation / 60000,
+                    (group_x + group_width / 2, group_y + group_height / 2),
+                )
+        ancestor = parents.get(ancestor)
+    return tuple(int(round(value)) for value in box), transformed_area
+
+
+def clip_box_to_slide(
+    box: tuple[int, int, int, int],
+    slide_width: int,
+    slide_height: int,
+) -> tuple[int, int, int, int] | None:
+    x, y, width, height = box
+    left = max(0, x)
+    top = max(0, y)
+    right = min(slide_width, x + width)
+    bottom = min(slide_height, y + height)
+    if right <= left or bottom <= top:
+        return None
+    return left, top, right - left, bottom - top
 
 
 def union_area(rectangles: list[tuple[int, int, int, int]]) -> int:
@@ -536,10 +856,14 @@ def slide_order(archive: zipfile.ZipFile) -> tuple[list[str], tuple[int, int]]:
     return slide_parts, (width, height)
 
 
-def image_bearers(slide: ET.Element) -> tuple[list[tuple[int, int, int, int]], int, bool]:
+def image_bearers(
+    slide: ET.Element,
+) -> tuple[list[tuple[int, int, int, int]], list[float], int, int, int]:
     parent = {child: node for node in slide.iter() for child in node}
     rectangles: list[tuple[int, int, int, int]] = []
-    uncertain_grouped = False
+    transformed_areas: list[float] = []
+    grouped_count = 0
+    unresolved_grouped = 0
     count = 0
     candidates = slide.findall(".//p:pic", NS) + slide.findall(".//p:sp", NS) + slide.findall(".//p:graphicFrame", NS)
     for node in candidates:
@@ -554,14 +878,17 @@ def image_bearers(slide: ET.Element) -> tuple[list[tuple[int, int, int, int]], i
                 break
             ancestor = parent.get(ancestor)
         if grouped:
-            uncertain_grouped = True
-            continue
-        box = object_box(node)
-        if box:
+            grouped_count += 1
+        geometry = image_box(node, parent)
+        if geometry:
+            box, transformed_area = geometry
             rectangles.append(box)
+            transformed_areas.append(transformed_area)
+        elif grouped:
+            unresolved_grouped += 1
     if slide.find("./p:cSld/p:bg/p:bgPr/a:blipFill", NS) is not None:
         count += 1
-    return rectangles, count, uncertain_grouped
+    return rectangles, transformed_areas, count, grouped_count, unresolved_grouped
 
 
 def source_reference_check(
@@ -612,12 +939,22 @@ def inspect_package(
     source: Path | None = None,
     *,
     require_single_slide: bool = False,
+    build_source: Path | None = None,
 ) -> dict[str, object]:
     hard_failures: list[dict[str, object]] = []
     warnings: list[dict[str, object]] = []
     checks: list[dict[str, object]] = []
     pptx = pptx.expanduser().resolve()
     source = source.expanduser().resolve() if source else None
+    build_source = build_source.expanduser().resolve() if build_source else None
+
+    if build_source is not None:
+        try:
+            checks.append(validate_build_source(build_source))
+        except CheckError as exc:
+            hard_failures.append(check_item(
+                "build_source.portable", "FAIL", str(exc), path=str(build_source)
+            ))
 
     try:
         if not pptx.is_file():
@@ -634,9 +971,16 @@ def inspect_package(
             names = set(archive.namelist())
             if "[Content_Types].xml" not in names:
                 raise CheckError("missing [Content_Types].xml")
+            validate_content_types(archive)
+            validate_relationship_targets(archive)
+            validate_root_office_document(archive)
             slide_parts, (slide_width, slide_height) = slide_order(archive)
+            for slide_part in slide_parts:
+                slide = parse_xml(archive, slide_part)
+                validate_slide_blips(archive, slide_part, slide)
             checks.append(check_item(
-                "package.readable", "PASS", "PPTX package and slide order are readable",
+                "package.readable", "PASS",
+                "PPTX content types, internal relationships, and slide order are readable",
                 slide_count=len(slide_parts), slide_size_emu=[slide_width, slide_height],
             ))
             if require_single_slide:
@@ -698,7 +1042,13 @@ def inspect_package(
             ]
             connectors = slide1.findall(".//p:cxnSp", NS)
             text_runs = [node.text or "" for node in slide1.findall(".//a:t", NS) if (node.text or "").strip()]
-            rectangles, raster_count, grouped_raster = image_bearers(slide1)
+            (
+                rectangles,
+                transformed_areas,
+                raster_count,
+                grouped_raster_count,
+                unresolved_grouped_raster,
+            ) = image_bearers(slide1)
             if not native_shapes and not connectors:
                 hard_failures.append(check_item(
                     "slide1.native_objects", "FAIL",
@@ -713,8 +1063,22 @@ def inspect_package(
                 ))
 
             slide_area = slide_width * slide_height
-            max_ratio = max((width * height / slide_area for _, _, width, height in rectangles), default=0.0)
-            union_ratio = union_area(rectangles) / slide_area if rectangles else 0.0
+            clipped_rectangles: list[tuple[int, int, int, int]] = []
+            visible_areas: list[float] = []
+            for box, transformed_area in zip(rectangles, transformed_areas):
+                clipped = clip_box_to_slide(box, slide_width, slide_height)
+                if clipped is None:
+                    continue
+                clipped_rectangles.append(clipped)
+                visible_areas.append(min(transformed_area, clipped[2] * clipped[3]))
+            max_ratio = max(
+                (visible_area / slide_area for visible_area in visible_areas),
+                default=0.0,
+            )
+            union_ratio = (
+                min(union_area(clipped_rectangles), sum(visible_areas)) / slide_area
+                if clipped_rectangles else 0.0
+            )
             has_image_background = slide1.find("./p:cSld/p:bg/p:bgPr/a:blipFill", NS) is not None
             raster_simulation = has_image_background or max_ratio >= 0.85 or (raster_count >= 2 and union_ratio >= 0.80)
             if raster_simulation:
@@ -722,6 +1086,7 @@ def inspect_package(
                     "slide1.not_flattened", "FAIL",
                     "Slide 1 appears to use a whole-page image or image mosaic",
                     raster_objects=raster_count,
+                    grouped_raster_objects=grouped_raster_count,
                     largest_coverage=round(max_ratio, 4),
                     union_coverage=round(union_ratio, 4),
                     image_background=has_image_background,
@@ -731,13 +1096,15 @@ def inspect_package(
                     "slide1.not_flattened", "PASS",
                     "No whole-page image or large image mosaic was detected",
                     raster_objects=raster_count,
+                    grouped_raster_objects=grouped_raster_count,
                     largest_coverage=round(max_ratio, 4),
                     union_coverage=round(union_ratio, 4),
                 ))
-            if grouped_raster:
+            if unresolved_grouped_raster:
                 warnings.append(check_item(
                     "slide1.grouped_raster_geometry", "WARN",
-                    "A raster object inside a group needs visual confirmation",
+                    "A grouped raster object has an incomplete transform and needs visual confirmation",
+                    unresolved_objects=unresolved_grouped_raster,
                 ))
 
             compatibility_failures, compatibility_warnings, compatibility_passes = (
@@ -798,6 +1165,7 @@ def inspect_package(
         "status": "FAIL" if hard_failures else "PASS",
         "pptx": str(pptx),
         "source": str(source) if source else None,
+        "build_source": str(build_source) if build_source else None,
         "hard_failures": hard_failures,
         "warnings": warnings,
         "checks": checks,
@@ -829,6 +1197,11 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--build-source",
+        type=Path,
+        help="optional executed build.mjs to check for basic portability hazards",
+    )
+    parser.add_argument(
         "--require-single-slide",
         action="store_true",
         help="require exactly one editable slide and keep --source external to the PPTX",
@@ -843,6 +1216,7 @@ def main(argv: list[str] | None = None) -> int:
         args.pptx,
         args.source,
         require_single_slide=args.require_single_slide,
+        build_source=args.build_source,
     )
     write_report(report, args.output)
     return 0 if report["status"] == "PASS" else 1
