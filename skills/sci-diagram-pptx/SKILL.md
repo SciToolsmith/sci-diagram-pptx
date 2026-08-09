@@ -1,6 +1,6 @@
 ---
 name: sci-diagram-pptx
-description: Reconstruct, repair, or inspect user-provided scientific and academic schematic diagrams as visually faithful, native editable PowerPoint (.pptx) files built primarily from PowerPoint shapes, text, and connectors. Use for 复刻、还原、临摹或修复科研框架图、技术路线图、科研流程图、机制图、算法流程图、科研系统结构图、学术概念模型、结构化科研信息图，以及包含数学符号或公式的学术图示. Do not use for quantitative data visualizations or statistical plots whose meaning is encoded by axes, scales, legends, or data-driven geometry; general business diagrams; organization charts; ordinary deck design; OCR-only extraction; or simple image placement.
+description: Reconstruct, repair, or inspect user-provided scientific and academic schematic diagrams as visually faithful, native editable single-slide PowerPoint (.pptx) files, delivered with the unchanged source image and executed build.mjs. Use for 复刻、还原、临摹或修复科研框架图、技术路线图、科研流程图、机制图、算法流程图、科研系统结构图、学术概念模型、结构化科研信息图，以及包含数学符号或公式的学术图示. Do not use for quantitative data visualizations or statistical plots whose meaning is encoded by axes, scales, legends, or data-driven geometry; general business diagrams; organization charts; ordinary deck design; OCR-only extraction; or simple image placement.
 ---
 
 # SciDiagram PPTX
@@ -37,7 +37,7 @@ Load and follow the installed `Presentations` skill for every PPTX build, repair
 - do not substitute image generation, Graphviz, imported SVG, outlined text, or source-image tiles for native reconstruction;
 - read current Artifact Tool documentation before using unfamiliar APIs, but do not probe standard documented shapes and text again.
 
-Resolve the current workspace dependencies and use the bundled Python executable reported by the workspace. Keep temporary code, renders, and check reports in a task-specific build directory. Put only the final PPTX in the user destination and never overwrite an existing file silently.
+Resolve the current workspace dependencies and use the bundled Python executable reported by the workspace. Keep probes, renders, check reports, and temporary crops in a task-specific build directory. Stage the final deliverable as one folder and never overwrite an existing file or folder silently.
 
 ## Follow one reconstruction workflow
 
@@ -55,7 +55,7 @@ When the user explicitly selects a panel from a larger image, crop only that pan
   --output "$BUILD_DIR/reference-panel.png"
 ```
 
-Use the original source as `REFERENCE_IMAGE` when no crop is needed. After an explicit crop, use the selected panel as `REFERENCE_IMAGE` for reconstruction, the reference slide, and package checking.
+Keep the exact uploaded file as `SOURCE_IMAGE`. Copy it byte-for-byte into the staged delivery folder as `source.<original-extension>` and refer to that copy as `DELIVERY_SOURCE`. Use `SOURCE_IMAGE` as `REFERENCE_IMAGE` when no crop is needed. After an explicit crop, use the selected panel as `REFERENCE_IMAGE` for reconstruction and visual comparison, but keep the unchanged full upload as `DELIVERY_SOURCE`. Record the selected pixel bounds in `build.mjs`; do not deliver the temporary crop by default.
 
 ### 2. Build with native semantic units
 
@@ -63,12 +63,9 @@ Read [native-object-policy.md](references/native-object-policy.md) and [cross-pl
 
 Preserve the source aspect ratio and derive placement from one consistent source-to-slide transform. Keep connectors behind nodes where appropriate and preserve source direction, endpoint, dash style, crossings, and z-order.
 
-Default to two slides using the same canvas:
+Create exactly one slide: the native editable reconstruction. Do not add a source-reference slide, hidden tracing slide, or hidden source image. The editable slide must never be a full-slide source bitmap or image-tile mosaic.
 
-1. Slide 1 — native editable reconstruction;
-2. Slide 2 — the unchanged source image or explicitly selected panel for reference.
-
-Honor an explicit user request for a one-slide deliverable. Slide 1 must never be a full-slide source bitmap, hidden tracing image, or image-tile mosaic.
+Write the actual authoring program as `build.mjs` before exporting. It must be the exact program executed to create the delivered `editable.pptx`, not a later summary. Keep the object map and required constants in that file whenever practical. Resolve companion files relative to `import.meta.url`, write `editable.pptx` beside the script, and do not include machine-specific absolute paths, temporary directories, credentials, or secrets. A short header comment may state the `@oai/artifact-tool` runtime requirement and run command; do not add a package manager bundle by default.
 
 For formulas, true vertical text, compound freeforms, gradients, or unusual connectors, read [math-and-fonts.md](references/math-and-fonts.md) and, only if support is uncertain, [capability-matrix.md](references/capability-matrix.md). Size and wrap text during generation with explicit fonts, line breaks, margins, and reasonable headroom; do not depend on PowerPoint changing the layout through open-time AutoFit. Use one focused capability probe, not a full evidence workflow.
 
@@ -95,11 +92,11 @@ Read [quality-checklist.md](references/quality-checklist.md), then run:
 
 ```bash
 "$SCI_DIAGRAM_PYTHON" "$SCI_DIAGRAM_SKILL_DIR/scripts/check_pptx.py" \
-  "$FINAL_PPTX" --source "$REFERENCE_IMAGE" \
+  "$FINAL_PPTX" --source "$DELIVERY_SOURCE" --require-single-slide \
   --output "$BUILD_DIR/check.json"
 ```
 
-The check must confirm that the package opens, contains a usable native reconstruction, avoids whole-page raster simulation, has no macro/OLE/external-media shortcuts, and—when a reference slide exists—uses the supplied source without an additional crop. Fix reported hard failures together and rerun this lightweight check once on the repaired file. Treat warnings as prompts for judgment, not automatic rejection.
+The check must confirm that the package opens, contains exactly one slide with a usable native reconstruction, avoids whole-page raster simulation, has no macro/OLE/external-media shortcuts, and recognizes the delivered source as an external companion rather than an embedded reference page. Fix reported hard failures together and rerun this lightweight check once on the repaired file. Treat warnings as prompts for judgment, not automatic rejection.
 
 ### 5. Run one native smoke check when available
 
@@ -111,19 +108,32 @@ If native PowerPoint is unavailable, do not simulate or claim this check. Record
 
 Deliver when scientific content, topology, native editability, readability, and file integrity are sound. Remaining cosmetic differences are not blockers.
 
-Return the final PPTX and a short note covering:
+For an image-to-PPTX reconstruction, return one folder with this stable minimal layout:
+
+```text
+<diagram-name>_editable/
+├── source.<original-extension>
+├── editable.pptx
+└── build.mjs
+```
+
+- `source.<original-extension>` is a byte-for-byte copy of the user's uploaded image; renaming is allowed only to make the bundle portable.
+- `editable.pptx` contains exactly one native editable reconstruction slide.
+- `build.mjs` is the actual executed source that generated that PPTX and uses relative, portable paths.
+
+Stage and validate the complete folder before moving it to the user destination. Confirm that `DELIVERY_SOURCE` has the same bytes as `SOURCE_IMAGE`, that the staged `build.mjs` was the program actually executed, and that it contains no machine-local absolute path or secret. Keep `check.json`, renders, probes, temporary crops, caches, and intermediate exports internal. Do not add a README, manifest, preview, ZIP, `node_modules`, or package-manager files unless the user explicitly asks for them. If several independent source images are requested, make one three-file folder per target rather than silently combining them into a multi-slide deck.
+
+Return the folder and a short note covering:
 
 - that the file was rendered and structurally checked;
 - whether the one native PowerPoint smoke check was performed and on which actual environment;
 - any material native approximation or local raster element;
 - any remaining compatibility limitation worth the user's attention.
 
-Deliver one portable PPTX by default. Derive platform-specific copies only when a real cross-platform blocker remains after the portable construction rules and each copy can be validated in its named target PowerPoint environment. Do not create or label Windows/macOS versions from operating-system assumptions alone.
-
-Do not deliver build scripts, reports, renders, or intermediate files unless requested.
+The bundle contains one portable PPTX by default. Derive platform-specific copies only when a real cross-platform blocker remains after the portable construction rules and each copy can be validated in its named target PowerPoint environment. Do not create or label Windows/macOS versions from operating-system assumptions alone.
 
 ## Handle an existing PPTX naturally
 
-When an editable PPTX is supplied, preserve correct native objects and repair only the mismatches against the authoritative source. Keep the original file untouched and write a new output. When the user asks only for inspection, do not modify the file; render it, run the same lightweight check, and report the meaningful discrepancies.
+When an editable PPTX is supplied, preserve correct native objects and repair only the mismatches against the authoritative source. Keep the original file untouched and write a new output. If a reference image is also supplied, use the same three-file bundle and make `build.mjs` the actual repair/rebuild program. If no image exists, do not fabricate one; deliver the repaired PPTX and its actual build source together and disclose that no source-image companion was available. When the user asks only for inspection, do not modify the file or create a delivery folder; render it, run the same lightweight check, and report the meaningful discrepancies.
 
 If a required native behavior is unavailable, explain the exact limitation and the narrowest practical alternative. Do not loop indefinitely or hide uncertainty in invisible objects.
