@@ -1,4 +1,4 @@
 interface:
   display_name: "SciDiagram PPTX｜科研图示原生复现"
   short_description: "将科研框架、机制与流程图忠实重建为原生可编辑 PowerPoint"
-  default_prompt: "Use $sci-diagram-pptx to reconstruct the supplied scientific schematic as one native editable PowerPoint slide and return a reproducible delivery folder."
+  default_prompt: "Use $sci-diagram-pptx to reconstruct the supplied scientific schematic as one native editable PowerPoint slide, preserve explicit connector direction and local image insets, and return the source, editable.pptx, and executed build.mjs."
