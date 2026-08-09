@@ -1,0 +1,16 @@
+{
+  "name": "sci-diagram-pptx-portable-runtime",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Pinned portable authoring runtime used by SciDiagram PPTX tests and server hosts.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test:portable": "python3 -B tests/test_portable_runtime.py"
+  },
+  "dependencies": {
+    "pptxgenjs": "4.0.1"
+  }
+}

@@ -67,8 +67,24 @@ jobs:
               or path.suffix in {".pyc", ".pyo"}
           ]
           assert not forbidden, f"Platform or bytecode junk found: {forbidden}"
-          scripts = {path.name for path in (skill / "scripts").glob("*.py")}
-          assert scripts == {"check_pptx.py", "panel_crop.py"}, scripts
+          python_scripts = {path.name for path in (skill / "scripts").glob("*.py")}
+          assert python_scripts == {
+              "check_pptx.py",
+              "panel_crop.py",
+              "render_pptx.py",
+          }, python_scripts
+          node_scripts = {path.name for path in (skill / "scripts").glob("*.mjs")}
+          assert node_scripts == {"probe_runtime.mjs"}, node_scripts
+          assets = {path.name for path in (skill / "assets").glob("*") if path.is_file()}
+          assert assets == {"pptxgenjs-build-template.mjs"}, assets
+          references = {path.name for path in (skill / "references").glob("*.md")}
+          assert references == {
+              "capability-matrix.md",
+              "cross-platform-compatibility.md",
+              "math-and-fonts.md",
+              "runtime-artifact-tool.md",
+              "runtime-pptxgenjs.md",
+          }, references
           print("metadata and package boundary: valid")
           PY
 
@@ -109,7 +125,8 @@ jobs:
         run: |
           for script in \
             panel_crop.py \
-            check_pptx.py
+            check_pptx.py \
+            render_pptx.py
           do
             python -B "skills/sci-diagram-pptx/scripts/$script" --help >/dev/null
           done
@@ -138,14 +155,58 @@ jobs:
           print("relative links: valid")
           PY
 
+  portable:
+    name: Portable Node runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install portable rendering dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libreoffice-impress \
+            poppler-utils \
+            fonts-noto-cjk \
+            fonts-noto-core \
+            fonts-liberation
+          python -m pip install --disable-pip-version-check -r requirements-ci.txt
+          npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Check portable JavaScript surfaces
+        run: |
+          node --check skills/sci-diagram-pptx/scripts/probe_runtime.mjs
+          node --check skills/sci-diagram-pptx/assets/pptxgenjs-build-template.mjs
+
+      - name: Run portable authoring and rendering regression
+        env:
+          SCI_DIAGRAM_RUNTIME: pptxgenjs
+        run: python -B tests/test_portable_runtime.py
+
   required:
     name: validate
-    needs: validate
+    needs:
+      - validate
+      - portable
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Require every Python matrix job
+      - name: Require all validation jobs
         env:
           MATRIX_RESULT: ${{ needs.validate.result }}
-        run: test "$MATRIX_RESULT" = "success"
+          PORTABLE_RESULT: ${{ needs.portable.result }}
+        run: |
+          test "$MATRIX_RESULT" = "success"
+          test "$PORTABLE_RESULT" = "success"

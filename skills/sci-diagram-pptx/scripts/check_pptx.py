@@ -46,6 +46,7 @@ SECRET_PATTERNS = (
     re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
 )
+BUILD_SOURCE_PACKAGES = {"@oai/artifact-tool", "pptxgenjs"}
 
 
 class CheckError(RuntimeError):
@@ -291,12 +292,18 @@ def validate_build_source(path: Path) -> dict[str, object]:
     })
     unsupported = [
         specifier for specifier in imports
-        if specifier != "@oai/artifact-tool" and not specifier.startswith("node:")
+        if specifier not in BUILD_SOURCE_PACKAGES and not specifier.startswith("node:")
     ]
     if unsupported:
         raise CheckError(
             "build source imports an unshipped or unsupported helper: "
             + ", ".join(unsupported)
+        )
+    authoring_packages = sorted(BUILD_SOURCE_PACKAGES.intersection(imports))
+    if len(authoring_packages) > 1:
+        raise CheckError(
+            "build source imports more than one authoring runtime: "
+            + ", ".join(authoring_packages)
         )
     return check_item(
         "build_source.portable", "PASS",
@@ -891,6 +898,226 @@ def image_bearers(
     return rectangles, transformed_areas, count, grouped_count, unresolved_grouped
 
 
+def xml_boolean(value: str | None) -> bool:
+    return (value or "").strip().lower() in {"1", "true", "on", "yes"}
+
+
+def non_visual_properties(node: ET.Element) -> ET.Element | None:
+    for path in (
+        "./p:nvPicPr/p:cNvPr",
+        "./p:nvSpPr/p:cNvPr",
+        "./p:nvGraphicFramePr/p:cNvPr",
+        "./p:nvGrpSpPr/p:cNvPr",
+    ):
+        properties = node.find(path, NS)
+        if properties is not None:
+            return properties
+    return None
+
+
+def image_object_hidden(
+    node: ET.Element,
+    parents: dict[ET.Element, ET.Element],
+) -> bool:
+    current: ET.Element | None = node
+    while current is not None:
+        properties = non_visual_properties(current)
+        if properties is not None and xml_boolean(properties.get("hidden")):
+            return True
+        current = parents.get(current)
+
+    for effect_name, attribute in (
+        ("alpha", "val"),
+        ("alphaMod", "amt"),
+        ("alphaModFix", "amt"),
+    ):
+        for effect in node.findall(f".//a:{effect_name}", NS):
+            if integer(effect, attribute) == 0:
+                return True
+    return False
+
+
+def crop_rectangle(node: ET.Element) -> tuple[dict[str, int | None], bool, bool]:
+    values: dict[str, int | None] = {}
+    for edge in ("l", "t", "r", "b"):
+        raw = node.get(edge)
+        if raw is None:
+            values[edge] = 0
+            continue
+        try:
+            values[edge] = int(raw)
+        except ValueError:
+            values[edge] = None
+    parsed = all(value is not None for value in values.values())
+    numeric = [int(value) for value in values.values() if value is not None]
+    valid = (
+        parsed
+        and all(0 <= value <= 100_000 for value in numeric)
+        and int(values["l"] or 0) + int(values["r"] or 0) < 100_000
+        and int(values["t"] or 0) + int(values["b"] or 0) < 100_000
+    )
+    nonzero = parsed and any(value != 0 for value in numeric)
+    return values, valid, nonzero
+
+
+def source_raster_inset_inventory(
+    archive: zipfile.ZipFile,
+    slide_part: str,
+    slide: ET.Element,
+    source_hash: str,
+    slide_width: int,
+    slide_height: int,
+) -> tuple[dict[str, object], list[str]]:
+    """Inventory exact source bytes used as visible OOXML-cropped raster insets."""
+    matching_media = sorted(
+        part for part in archive.namelist()
+        if part.startswith("ppt/media/")
+        and not part.endswith("/")
+        and sha256_bytes(archive.read(part)) == source_hash
+    )
+    matching_media_set = set(matching_media)
+    slide_rels = relationships(archive, slide_part)
+    parents = {child: node for node in slide.iter() for child in node}
+    image_object_tags = {
+        f"{{{NS['p']}}}pic",
+        f"{{{NS['p']}}}sp",
+        f"{{{NS['p']}}}graphicFrame",
+    }
+    image_objects = [node for node in slide.iter() if node.tag in image_object_tags]
+    object_indexes = {node: index for index, node in enumerate(image_objects, start=1)}
+    records: list[dict[str, object]] = []
+    visible_rectangles: list[tuple[int, int, int, int]] = []
+    visible_coverages: list[float] = []
+    referenced_media: set[str] = set()
+    source_object_keys: set[tuple[str, int]] = set()
+    slide_area = slide_width * slide_height
+
+    for blip in slide.findall(".//a:blip", NS):
+        relation_id = blip.get(R_EMBED) or blip.get(R_LINK)
+        relation = slide_rels.get(relation_id or "")
+        media_part = relation.get("resolved") if relation else None
+        if not isinstance(media_part, str) or media_part not in matching_media_set:
+            continue
+        referenced_media.add(media_part)
+
+        owner: ET.Element | None = parents.get(blip)
+        while owner is not None and owner.tag not in image_object_tags:
+            owner = parents.get(owner)
+        object_index = object_indexes.get(owner) if owner is not None else None
+        object_type = local_name(owner.tag) if owner is not None else "unsupported"
+        object_key = (object_type, object_index or -len(records) - 1)
+        source_object_keys.add(object_key)
+        properties = non_visual_properties(owner) if owner is not None else None
+        hidden = owner is None or image_object_hidden(owner, parents)
+        reasons: list[str] = []
+
+        crop_nodes = owner.findall(".//a:srcRect", NS) if owner is not None else []
+        crop_records: list[dict[str, int | None]] = []
+        crop_valid = False
+        crop_nonzero = False
+        if len(crop_nodes) == 1:
+            crop_values, crop_valid, crop_nonzero = crop_rectangle(crop_nodes[0])
+            crop_records.append(crop_values)
+            if not crop_valid:
+                reasons.append("invalid_src_rect_crop")
+            elif not crop_nonzero:
+                reasons.append("missing_src_rect_crop")
+        elif not crop_nodes:
+            reasons.append("missing_src_rect_crop")
+        else:
+            for crop_node in crop_nodes:
+                crop_records.append(crop_rectangle(crop_node)[0])
+            reasons.append("ambiguous_src_rect_crop")
+
+        if hidden:
+            reasons.append("hidden_source_inset")
+
+        box: tuple[int, int, int, int] | None = None
+        clipped: tuple[int, int, int, int] | None = None
+        visible_area = 0.0
+        coverage = 0.0
+        raw_box = object_box(owner) if owner is not None else None
+        if raw_box is None:
+            reasons.append("unresolved_geometry")
+        elif raw_box[2] <= 0 or raw_box[3] <= 0:
+            reasons.append("zero_dimensions")
+        else:
+            geometry = image_box(owner, parents) if owner is not None else None
+            if geometry is None:
+                reasons.append("unresolved_geometry")
+            else:
+                box, transformed_area = geometry
+                clipped = clip_box_to_slide(box, slide_width, slide_height)
+                if clipped is None:
+                    reasons.append("outside_slide")
+                else:
+                    visible_area = min(transformed_area, clipped[2] * clipped[3])
+                    if visible_area <= 0:
+                        reasons.append("zero_visible_area")
+                    else:
+                        coverage = visible_area / slide_area
+                        if not hidden:
+                            visible_rectangles.append(clipped)
+                            visible_coverages.append(coverage)
+
+        record: dict[str, object] = {
+            "usage_index": len(records) + 1,
+            "object_index": object_index,
+            "object_type": object_type,
+            "object_id": properties.get("id") if properties is not None else None,
+            "name": properties.get("name") if properties is not None else None,
+            "relationship_id": relation_id,
+            "media_part": media_part,
+            "src_rects": crop_records,
+            "src_rect_valid": crop_valid,
+            "src_rect_nonzero": crop_nonzero,
+            "hidden": hidden,
+            "box_emu": list(box) if box is not None else None,
+            "visible_box_emu": list(clipped) if clipped is not None else None,
+            "visible_area_emu2": int(round(visible_area)),
+            "visible_coverage": round(coverage, 4),
+            "qualifies_individually": not reasons,
+            "violations": reasons,
+        }
+        records.append(record)
+
+    unused_media = sorted(matching_media_set - referenced_media)
+    union_coverage = (
+        union_area(visible_rectangles) / slide_area if visible_rectangles else 0.0
+    )
+    violations = sorted({
+        str(reason)
+        for record in records
+        for reason in record["violations"]  # type: ignore[union-attr]
+    })
+    if unused_media:
+        violations.append("unreferenced_source_media")
+    violations = sorted(set(violations))
+
+    evidence: dict[str, object] = {
+        "source_sha256": source_hash,
+        "matching_media_parts": matching_media,
+        "unused_media_parts": unused_media,
+        "source_media_part_count": len(matching_media),
+        "source_usage_count": len(records),
+        "source_object_count": len(source_object_keys),
+        "qualifying_object_count": sum(
+            bool(record["qualifies_individually"]) for record in records
+        ),
+        "largest_visible_coverage": round(max(visible_coverages, default=0.0), 4),
+        "union_visible_coverage": round(union_coverage, 4),
+        "policy": {
+            "requires_nonzero_src_rect": True,
+            "requires_visible_positive_dimensions": True,
+            "whole_page_or_mosaic_check_id": "slide1.not_flattened",
+        },
+        "objects": records[:25],
+        "truncated": max(0, len(records) - 25),
+        "violations": violations,
+    }
+    return evidence, violations
+
+
 def source_reference_check(
     archive: zipfile.ZipFile,
     slide_part: str,
@@ -999,10 +1226,13 @@ def inspect_package(
 
             forbidden = sorted(
                 name for name in names
-                if name.endswith("vbaProject.bin")
-                or "/embeddings/" in name
-                or "/oleObjects/" in name
-                or "/activeX/" in name
+                if not name.endswith("/")
+                and (
+                    name.endswith("vbaProject.bin")
+                    or "/embeddings/" in name
+                    or "/oleObjects/" in name
+                    or "/activeX/" in name
+                )
             )
             external_media = []
             external_other = []
@@ -1116,26 +1346,51 @@ def inspect_package(
 
             if require_single_slide and source:
                 source_hash = sha256_file(source)
-                matching_media = sorted(
-                    part for part in names
-                    if part.startswith("ppt/media/")
-                    and not part.endswith("/")
-                    and sha256_bytes(archive.read(part)) == source_hash
+                inset_evidence, inset_violations = source_raster_inset_inventory(
+                    archive,
+                    slide_parts[0],
+                    slide1,
+                    source_hash,
+                    slide_width,
+                    slide_height,
                 )
-                if matching_media:
+                if inset_violations:
+                    warnings.append(check_item(
+                        "source.raster_inset_inventory", "WARN",
+                        "Exact source bytes are embedded, but one or more uses do not satisfy the local raster-inset policy",
+                        **inset_evidence,
+                    ))
                     hard_failures.append(check_item(
                         "source.not_embedded", "FAIL",
-                        "The source image must remain external and must not be embedded in the PPTX",
-                        matching_media=matching_media,
+                        "Source bytes may be embedded only as explicitly cropped, visible raster insets; whole-page and mosaic use is checked separately",
+                        inventory_check_id="source.raster_inset_inventory",
+                        matching_media=inset_evidence["matching_media_parts"],
+                        source_usage_count=inset_evidence["source_usage_count"],
+                        violations=inset_violations,
                         sha256=source_hash,
                     ))
                 else:
+                    source_usage_count = int(inset_evidence["source_usage_count"])
+                    checks.append(check_item(
+                        "source.raster_inset_inventory", "PASS",
+                        (
+                            "Every embedded copy of the source is a nonzero-cropped, visible raster inset"
+                            if source_usage_count
+                            else "No exact source bytes are embedded as raster media"
+                        ),
+                        **inset_evidence,
+                    ))
                     checks.append(check_item(
                         "source.external_companion", "PASS",
-                        "The supplied source image is external and no identical media bytes are embedded in the PPTX",
+                        (
+                            "The supplied source remains an external companion; embedded copies are limited to qualifying cropped insets"
+                            if source_usage_count
+                            else "The supplied source image is external and no identical media bytes are embedded in the PPTX"
+                        ),
                         path=str(source),
                         bytes=source.stat().st_size,
                         sha256=source_hash,
+                        qualifying_source_insets=source_usage_count,
                     ))
             elif source and len(slide_parts) >= 2:
                 failures, source_warnings = source_reference_check(archive, slide_parts[1], source)
