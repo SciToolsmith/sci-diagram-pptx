@@ -4,7 +4,7 @@ Use this policy for every reconstruction. Target one portable, editable PPTX tha
 
 ## Build one portable file
 
-Generate one portable PPTX by default. Keep content, object IDs, topology, and layout in one canonical build rather than maintaining Windows and macOS branches. Do not infer compatibility from the generation host or label an untested file for another platform.
+Generate one portable, single-slide PPTX inside the delivery folder by default. Keep content, object IDs, topology, and layout in one canonical `build.mjs` rather than maintaining Windows and macOS branches. Do not infer compatibility from the generation host or label an untested file for another platform.
 
 Create platform-specific derivatives only when:
 

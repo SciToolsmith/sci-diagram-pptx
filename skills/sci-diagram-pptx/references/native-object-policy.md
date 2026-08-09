@@ -29,7 +29,7 @@ Group only coherent modules when grouping helps later editing. Avoid a page-wide
 
 ## Limit raster content
 
-Slide 1 must not be a full-slide source image, hidden tracing image, imported SVG path cloud, or image-tile mosaic. Allow a raster object only when the source element is intrinsically raster, such as a microscopy thumbnail or texture. Keep its labels, frame, and relationships native.
+The single editable slide must not be a full-slide source image, hidden tracing image, imported SVG path cloud, or image-tile mosaic. Keep the unchanged source outside the PPTX in the delivery folder. Allow a raster object only when the source element is intrinsically raster, such as a microscopy thumbnail or texture. Keep its labels, frame, and relationships native.
 
 Ask before rasterizing a substantial meaning-bearing region. A small cosmetic approximation may be implemented directly and disclosed at delivery.
 

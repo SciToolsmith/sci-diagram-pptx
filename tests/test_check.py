@@ -132,7 +132,7 @@ def picture(object_id: int, rid: str, x: int, y: int, width: int, height: int, c
 def make_deck(root: Path, variant: str = "good") -> tuple[Path, Path]:
     source = root / "source.png"
     source.write_bytes(PNG)
-    one_slide = variant == "one_slide"
+    one_slide = variant in {"one_slide", "one_slide_embedded_source"}
 
     node_variants = {
         "custom_missing_rect", "custom_empty_rect", "custom_with_rect", "custom_no_text", "font_missing", "font_partial", "font_theme",
@@ -145,7 +145,11 @@ def make_deck(root: Path, variant: str = "good") -> tuple[Path, Path]:
         slide1_children += office_math(variant.removeprefix("office_math_"))
     slide1_rels = [("rId1", f"{R}/slideLayout", "../slideLayouts/slideLayout1.xml", False)]
     media: dict[str, bytes] = {}
-    if variant == "full_image":
+    if variant == "one_slide_embedded_source":
+        slide1_children += picture(3, "rId2", W // 10, H // 10, W // 10, H // 10)
+        slide1_rels.append(("rId2", f"{R}/image", "../media/embedded-source.png", False))
+        media["ppt/media/embedded-source.png"] = PNG
+    elif variant == "full_image":
         slide1_children += picture(3, "rId2", 0, 0, W, H)
         slide1_rels.append(("rId2", f"{R}/image", "../media/full.png", False))
         media["ppt/media/full.png"] = PNG
@@ -198,11 +202,20 @@ def make_deck(root: Path, variant: str = "good") -> tuple[Path, Path]:
 
 
 class CheckPptxTests(unittest.TestCase):
-    def report(self, variant: str) -> dict[str, object]:
+    def report(
+        self,
+        variant: str,
+        *,
+        require_single_slide: bool = False,
+    ) -> dict[str, object]:
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         deck, source = make_deck(Path(directory.name), variant)
-        return check_pptx.inspect_package(deck, source)
+        return check_pptx.inspect_package(
+            deck,
+            source,
+            require_single_slide=require_single_slide,
+        )
 
     def ids(self, report: dict[str, object]) -> set[str]:
         return {str(item["id"]) for item in report["hard_failures"]}  # type: ignore[index]
@@ -310,11 +323,43 @@ class CheckPptxTests(unittest.TestCase):
         report = self.report("external_media")
         self.assertIn("package.no_unsafe_embeds", self.ids(report))
 
-    def test_one_slide_native_package_passes_with_warning(self) -> None:
+    def test_legacy_one_slide_with_source_warns_missing_reference_slide(self) -> None:
         report = self.report("one_slide")
         self.assertEqual(report["status"], "PASS")
         warning_ids = {str(item["id"]) for item in report["warnings"]}  # type: ignore[index]
         self.assertIn("slide2.source_reference", warning_ids)
+
+    def test_single_slide_contract_accepts_external_source(self) -> None:
+        report = self.report("one_slide", require_single_slide=True)
+        self.assertEqual(report["status"], "PASS", report["hard_failures"])
+        self.assertEqual(self.check(report, "delivery.single_slide")["status"], "PASS")
+        companion = self.check(report, "source.external_companion")
+        self.assertEqual(companion["status"], "PASS")
+        self.assertEqual(companion["evidence"]["sha256"], check_pptx.sha256_bytes(PNG))  # type: ignore[index]
+        self.assertNotIn("slide2.source_reference", self.warning_ids(report))
+
+    def test_single_slide_contract_rejects_embedded_source_bytes(self) -> None:
+        report = self.report("one_slide_embedded_source", require_single_slide=True)
+        self.assertEqual(report["status"], "FAIL")
+        self.assertIn("source.not_embedded", self.ids(report))
+        self.assertNotIn(
+            "source.external_companion",
+            {str(item["id"]) for item in report["checks"]},  # type: ignore[index]
+        )
+        self.assertNotIn("slide1.not_flattened", self.ids(report))
+
+    def test_single_slide_contract_rejects_extra_slide_without_source_misclassification(self) -> None:
+        report = self.report("mismatch", require_single_slide=True)
+        self.assertEqual(report["status"], "FAIL")
+        self.assertIn("delivery.single_slide", self.ids(report))
+        self.assertNotIn("slide2.source_bytes", self.ids(report))
+        self.assertNotIn("slide2.source_reference", self.warning_ids(report))
+
+    def test_parser_accepts_require_single_slide(self) -> None:
+        args = check_pptx.build_parser().parse_args([
+            "deck.pptx", "--source", "source.png", "--require-single-slide",
+        ])
+        self.assertTrue(args.require_single_slide)
 
     def test_non_zip_fails(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

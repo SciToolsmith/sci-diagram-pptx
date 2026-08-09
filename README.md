@@ -73,7 +73,7 @@
   </tr>
 </table>
 
-> 公开案例仅包含可编辑重建页，不包含任务源图、参考页或本机备注。
+> 公开案例仅展示和下载单页可编辑 PPTX；实际任务交付中的用户原图与构建源码不随案例公开。
 
 <a id="install"></a>
 
@@ -128,19 +128,24 @@ $sci-diagram-pptx 把这张科研流程图忠实重建为原生可编辑 PPTX，
 
 ## 交付原则
 
-常规重建默认交付两页：
+常规重建交付一个职责清晰的文件夹：
 
-- **第 1 页**：原生可编辑重建图。
-- **第 2 页**：源图对照页。
+```text
+<图名>_editable/
+├── source.<原扩展名>  # 用户上传原图的逐字节副本
+├── editable.pptx       # 单页原生可编辑重建
+└── build.mjs           # 实际执行的构建源码
+```
 
 ```text
 确认目标 → 梳理结构 → 原生重建 → 渲染检查 → 必要时集中修复一次 → 交付
 ```
 
-- **原生可编辑**：优先使用 PowerPoint 形状、文本框和连接线，不用整页截图冒充编辑性。
+- **单页原生可编辑**：PPTX 只保留重建页，优先使用 PowerPoint 形状、文本框和连接线，不用整页截图冒充编辑性。
+- **可对照、可复现**：源图保持外置；`build.mjs` 是实际运行并生成该 PPTX 的源码，不是事后摘要，也不包含本机绝对路径。
 - **科学含义优先**：保护文字、公式、方向和拓扑；歧义可能改变含义时先询问用户。
 - **聚焦验证**：完成一次全图渲染和一次结构检查；只为明显阻断项集中修复，避免无休止追逐像素微差。
-- **跨平台务实**：默认交付一份便携 PPTX，优先稳定的标准形状、独立文本框、明确字体和留白；保障可读与可编辑，不承诺 Windows 与 macOS 像素完全一致。
+- **跨平台务实**：`editable.pptx` 是一份便携的单页文件，优先稳定的标准形状、独立文本框、明确字体和留白；保障可读与可编辑，不承诺 Windows 与 macOS 像素完全一致。
 
 [查看完整 Skill 工作流与质量规则](skills/sci-diagram-pptx/SKILL.md)
 
@@ -190,6 +195,10 @@ $sci-diagram-pptx Reconstruct this scientific flowchart as a native editable PPT
 Preserve all labels, formulas, hierarchy, directions, and connections. Do not redesign it.
 ```
 
+### Delivery
+
+Each reconstruction is returned as one folder containing the unchanged uploaded source, a single-slide native editable `editable.pptx`, and the actual `build.mjs` used to generate it. The source stays outside the presentation instead of becoming a second reference slide.
+
 ### Editable examples
 
 - [Global innovation-chain framework](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/global-innovation-chain-framework-editable.pptx)
@@ -197,6 +206,6 @@ Preserve all labels, formulas, hierarchy, directions, and connections. Do not re
 - [Load-cycle mechanism](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/load-cycle-model-editable.pptx)
 - [Adaptive FIR decomposition flowchart](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/adaptive-fir-mode-decomposition-flowchart-editable.pptx)
 
-Public examples contain only the editable reconstruction slide; task source images and local notes are excluded.
+Public examples expose only the single-slide editable PPTX. User source images and task build files are not published with them.
 
 </details>

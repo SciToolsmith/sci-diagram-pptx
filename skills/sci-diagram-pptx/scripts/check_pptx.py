@@ -607,7 +607,12 @@ def source_reference_check(
     return failures, warnings
 
 
-def inspect_package(pptx: Path, source: Path | None = None) -> dict[str, object]:
+def inspect_package(
+    pptx: Path,
+    source: Path | None = None,
+    *,
+    require_single_slide: bool = False,
+) -> dict[str, object]:
     hard_failures: list[dict[str, object]] = []
     warnings: list[dict[str, object]] = []
     checks: list[dict[str, object]] = []
@@ -634,6 +639,19 @@ def inspect_package(pptx: Path, source: Path | None = None) -> dict[str, object]
                 "package.readable", "PASS", "PPTX package and slide order are readable",
                 slide_count=len(slide_parts), slide_size_emu=[slide_width, slide_height],
             ))
+            if require_single_slide:
+                if len(slide_parts) == 1:
+                    checks.append(check_item(
+                        "delivery.single_slide", "PASS",
+                        "The delivery contains exactly one editable slide",
+                        slide_count=1,
+                    ))
+                else:
+                    hard_failures.append(check_item(
+                        "delivery.single_slide", "FAIL",
+                        "The delivery must contain exactly one editable slide; keep the source image as an external companion file",
+                        slide_count=len(slide_parts),
+                    ))
 
             forbidden = sorted(
                 name for name in names
@@ -729,7 +747,30 @@ def inspect_package(pptx: Path, source: Path | None = None) -> dict[str, object]
             warnings.extend(compatibility_warnings)
             checks.extend(compatibility_passes)
 
-            if source and len(slide_parts) >= 2:
+            if require_single_slide and source:
+                source_hash = sha256_file(source)
+                matching_media = sorted(
+                    part for part in names
+                    if part.startswith("ppt/media/")
+                    and not part.endswith("/")
+                    and sha256_bytes(archive.read(part)) == source_hash
+                )
+                if matching_media:
+                    hard_failures.append(check_item(
+                        "source.not_embedded", "FAIL",
+                        "The source image must remain external and must not be embedded in the PPTX",
+                        matching_media=matching_media,
+                        sha256=source_hash,
+                    ))
+                else:
+                    checks.append(check_item(
+                        "source.external_companion", "PASS",
+                        "The supplied source image is external and no identical media bytes are embedded in the PPTX",
+                        path=str(source),
+                        bytes=source.stat().st_size,
+                        sha256=source_hash,
+                    ))
+            elif source and len(slide_parts) >= 2:
                 failures, source_warnings = source_reference_check(archive, slide_parts[1], source)
                 hard_failures.extend(failures)
                 warnings.extend(source_warnings)
@@ -779,14 +820,30 @@ def write_report(report: dict[str, object], output: Path | None) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run focused structural checks on a scientific-diagram PPTX.")
     parser.add_argument("pptx", type=Path, help="PPTX to inspect")
-    parser.add_argument("--source", type=Path, help="optional source image for Slide 2 identity check")
+    parser.add_argument(
+        "--source",
+        type=Path,
+        help=(
+            "source image; treated as an external companion with --require-single-slide, "
+            "otherwise used for the optional legacy Slide 2 identity check"
+        ),
+    )
+    parser.add_argument(
+        "--require-single-slide",
+        action="store_true",
+        help="require exactly one editable slide and keep --source external to the PPTX",
+    )
     parser.add_argument("--output", type=Path, help="optional JSON report path")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    report = inspect_package(args.pptx, args.source)
+    report = inspect_package(
+        args.pptx,
+        args.source,
+        require_single_slide=args.require_single_slide,
+    )
     write_report(report, args.output)
     return 0 if report["status"] == "PASS" else 1
 

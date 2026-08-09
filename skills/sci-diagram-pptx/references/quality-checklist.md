@@ -10,8 +10,9 @@ Fix these before delivery:
 - a major region, node, label, or relationship is missing;
 - connector direction, topology, nesting, or reading order is wrong;
 - text is clipped, meaning-bearing objects overlap, or content lies outside the canvas;
-- Slide 1 is flattened, tiled, or primarily composed of the source bitmap;
+- the single editable slide is flattened, tiled, or primarily composed of the source bitmap;
 - the PPTX cannot open, render, or retain its expected native objects;
+- the reconstruction bundle is missing the unchanged source companion or the actual executed `build.mjs`, or the build source contains machine-local paths or secrets;
 - a material approximation or raster fallback changes meaning without user confirmation.
 
 ## Non-blocking differences
@@ -35,4 +36,4 @@ After the second render, make further edits only for a named blocking defect. If
 - Block `customGeom/freeform + text + no explicit text rectangle` in a generated deliverable because the same label can be placed safely in a standard text box. Inventory other custom geometry as a warning rather than rejecting it merely for being custom.
 - Inspect AutoFit dependence, inadequate text headroom, missing glyphs, unexpected font fallback, and fragile character fragments.
 - Keep the optional native smoke check to one final open or export. Do not add separate Windows/macOS review modes or a multi-round approval workflow.
-- Deliver one portable PPTX unless [cross-platform-compatibility.md](cross-platform-compatibility.md) justifies separately validated derivatives.
+- Deliver one portable, single-slide PPTX inside the three-file source/PPTX/build bundle unless [cross-platform-compatibility.md](cross-platform-compatibility.md) justifies separately validated derivatives.
