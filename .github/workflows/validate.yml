@@ -92,20 +92,38 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import subprocess
+          import zipfile
 
-          roots = [Path("README.md"), Path("skills/sci-diagram-pptx"), Path("tests")]
-          needles = ("/Users/", "/Volumes/", "/private/tmp/")
+          tracked = subprocess.check_output(
+              ["git", "ls-files", "-z"]
+          ).decode("utf-8").split("\0")
+          paths = [Path(value) for value in tracked if value and Path(value).is_file()]
+          needles = (
+              b"/" + b"Users" + b"/",
+              b"/" + b"Volumes" + b"/",
+              b"/private/" + b"tmp" + b"/",
+              b"/" + b"tmp" + b"/",
+              b"/" + b"home" + b"/",
+              b"C:" + b"\\\\" + b"Users" + b"\\\\",
+              b"C:/" + b"Users" + b"/",
+          )
           failures = []
-          for root in roots:
-              paths = [root] if root.is_file() else [p for p in root.rglob("*") if p.is_file()]
-              for path in paths:
-                  try:
-                      text = path.read_text(encoding="utf-8")
-                  except UnicodeDecodeError:
-                      continue
+          for path in paths:
+              payloads = [(str(path), path.read_bytes())]
+              if path.suffix.lower() == ".pptx":
+                  with zipfile.ZipFile(path) as archive:
+                      payloads.extend(
+                          (f"{path}!/{name}", archive.read(name))
+                          for name in archive.namelist()
+                          if not name.endswith("/")
+                      )
+              for label, payload in payloads:
                   for needle in needles:
-                      if needle in text:
-                          failures.append(f"{path}: contains {needle}")
+                      if needle in payload:
+                          failures.append(
+                              f"{label}: contains {needle.decode('ascii')}"
+                          )
           assert not failures, "\n".join(failures)
           print("local path scan: clean")
           PY
@@ -165,7 +183,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "20"
           cache: npm
 
       - uses: actions/setup-python@v6

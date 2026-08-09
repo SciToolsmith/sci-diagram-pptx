@@ -32,14 +32,13 @@ REL_NS = NS["rel"]
 FONT_SCRIPTS = ("latin", "ea", "cs")
 AUTOFIT_NAMES = {"noAutofit", "normAutofit", "spAutoFit"}
 LOCAL_PATH_PATTERN = re.compile(
-    r"(?<![A-Za-z0-9._-])(?:/(?:Users|Volumes|home)(?:/|\b)|/(?:private/)?tmp(?:/|\b)|[A-Za-z]:[\\/])"
+    r"(?<![A-Za-z0-9._-])(?:/(?:Users|Volumes|home|root|srv|app|workspace|opt|etc|mnt|data|var)(?:/|\b)|/(?:private/)?tmp(?:/|\b)|[A-Za-z]:[\\/])"
 )
-IMPORT_PATTERNS = (
-    re.compile(r"(?m)^\s*import\s+(?:[^;\n]*?\s+from\s+)?['\"]([^'\"]+)['\"]"),
-    re.compile(r"(?m)^\s*export\s+[^;\n]*?\s+from\s+['\"]([^'\"]+)['\"]"),
-    re.compile(r"\bimport\s*\(\s*['\"]([^'\"]+)['\"]\s*\)"),
-    re.compile(r"\brequire\s*\(\s*['\"]([^'\"]+)['\"]\s*\)"),
-)
+MODULE_DECLARATION_PATTERN = re.compile(r"(?m)(?:^[ \t]*|;[ \t]*)(import|export)\b")
+JS_GAP_PATTERN = r"(?:\s|/\*[\s\S]*?\*/|//[^\n]*(?:\n|$))*"
+DYNAMIC_IMPORT_PATTERN = re.compile(rf"\bimport{JS_GAP_PATTERN}\(")
+REQUIRE_PATTERN = re.compile(rf"\brequire{JS_GAP_PATTERN}\(")
+CREATE_REQUIRE_PATTERN = re.compile(r"\bcreateRequire\b")
 SECRET_PATTERNS = (
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
     re.compile(r"\b(?:sk|rk)-[A-Za-z0-9_-]{20,}\b"),
@@ -47,10 +46,47 @@ SECRET_PATTERNS = (
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
 )
 BUILD_SOURCE_PACKAGES = {"@oai/artifact-tool", "pptxgenjs"}
+SAFE_NODE_MODULES = {"node:fs", "node:fs/promises", "node:path", "node:url"}
+
+ZIP_MAX_MEMBERS = 10_000
+ZIP_MAX_ENTRY_UNCOMPRESSED = 256 * 1024 * 1024
+ZIP_MAX_TOTAL_UNCOMPRESSED = 1024 * 1024 * 1024
+ZIP_MAX_XML_UNCOMPRESSED = 32 * 1024 * 1024
+ZIP_MAX_COMPRESSION_RATIO = 200.0
+ZIP_RATIO_MIN_UNCOMPRESSED = 1024 * 1024
+
+UNSAFE_RELATIONSHIP_KINDS = {
+    "activexcontrol",
+    "activexcontrolbinary",
+    "control",
+    "controlprop",
+    "controlproperties",
+    "embeddedcontrolpersistence",
+    "embeddedobject",
+    "embeddedpackage",
+    "oleobject",
+    "package",
+    "vbaproject",
+}
+UNSAFE_CONTENT_TYPE_FRAGMENTS = (
+    "activex",
+    "controlproperties",
+    "oleobject",
+    "vbaproject",
+)
 
 
 class CheckError(RuntimeError):
-    pass
+    def __init__(
+        self,
+        message: str,
+        *,
+        identifier: str = "package.readable",
+        **evidence: object,
+    ) -> None:
+        super().__init__(message)
+        self.identifier = identifier
+        self.evidence = evidence
 
 
 def sha256_bytes(value: bytes) -> str:
@@ -63,6 +99,115 @@ def sha256_file(path: Path) -> str:
         for block in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def is_xml_part(name: str) -> bool:
+    lowered = name.lower()
+    return lowered.endswith((".xml", ".rels")) or lowered == "[content_types].xml"
+
+
+def validate_zip_budget(archive: zipfile.ZipFile) -> dict[str, object]:
+    """Reject ambiguous or unusually expensive ZIP packages before reading members."""
+    infos = archive.infolist()
+    seen: set[str] = set()
+    duplicates: list[str] = []
+    total_uncompressed = 0
+    largest_entry = 0
+    largest_xml = 0
+    highest_ratio = 0.0
+
+    for info in infos:
+        if info.filename in seen:
+            duplicates.append(info.filename)
+        seen.add(info.filename)
+        if info.flag_bits & 0x1:
+            raise CheckError(
+                "encrypted ZIP members are not supported",
+                identifier="package.encryption",
+                member=info.filename,
+            )
+        if info.is_dir():
+            continue
+        total_uncompressed += info.file_size
+        largest_entry = max(largest_entry, info.file_size)
+        if info.file_size > ZIP_MAX_ENTRY_UNCOMPRESSED:
+            raise CheckError(
+                "ZIP member exceeds the uncompressed size budget",
+                identifier="package.zip_budget",
+                member=info.filename,
+                uncompressed_bytes=info.file_size,
+                limit_bytes=ZIP_MAX_ENTRY_UNCOMPRESSED,
+                budget="single_member",
+            )
+        if total_uncompressed > ZIP_MAX_TOTAL_UNCOMPRESSED:
+            raise CheckError(
+                "ZIP package exceeds the total uncompressed size budget",
+                identifier="package.zip_budget",
+                uncompressed_bytes=total_uncompressed,
+                limit_bytes=ZIP_MAX_TOTAL_UNCOMPRESSED,
+                budget="total",
+            )
+        if is_xml_part(info.filename):
+            largest_xml = max(largest_xml, info.file_size)
+            if info.file_size > ZIP_MAX_XML_UNCOMPRESSED:
+                raise CheckError(
+                    "XML member exceeds the XML size budget",
+                    identifier="package.zip_budget",
+                    member=info.filename,
+                    uncompressed_bytes=info.file_size,
+                    limit_bytes=ZIP_MAX_XML_UNCOMPRESSED,
+                    budget="xml_member",
+                )
+        if info.file_size >= ZIP_RATIO_MIN_UNCOMPRESSED:
+            ratio = (
+                float("inf") if info.compress_size == 0
+                else info.file_size / info.compress_size
+            )
+            highest_ratio = max(highest_ratio, ratio)
+            if ratio > ZIP_MAX_COMPRESSION_RATIO:
+                raise CheckError(
+                    "ZIP member has an extreme compression ratio",
+                    identifier="package.zip_budget",
+                    member=info.filename,
+                    uncompressed_bytes=info.file_size,
+                    compressed_bytes=info.compress_size,
+                    compression_ratio=round(ratio, 2),
+                    limit=ZIP_MAX_COMPRESSION_RATIO,
+                    budget="compression_ratio",
+                )
+
+    if duplicates:
+        unique_duplicates = sorted(set(duplicates))
+        raise CheckError(
+            "ZIP package contains duplicate member names",
+            identifier="package.unique_members",
+            members=unique_duplicates[:25],
+            duplicate_count=len(unique_duplicates),
+            truncated=max(0, len(unique_duplicates) - 25),
+        )
+    if len(infos) > ZIP_MAX_MEMBERS:
+        raise CheckError(
+            "ZIP package exceeds the member-count budget",
+            identifier="package.zip_budget",
+            member_count=len(infos),
+            limit=ZIP_MAX_MEMBERS,
+            budget="member_count",
+        )
+    return {
+        "member_count": len(infos),
+        "total_uncompressed_bytes": total_uncompressed,
+        "largest_member_bytes": largest_entry,
+        "largest_xml_member_bytes": largest_xml,
+        "highest_checked_compression_ratio": round(highest_ratio, 2),
+        "limits": {
+            "members": ZIP_MAX_MEMBERS,
+            "single_member_bytes": ZIP_MAX_ENTRY_UNCOMPRESSED,
+            "total_uncompressed_bytes": ZIP_MAX_TOTAL_UNCOMPRESSED,
+            "xml_member_bytes": ZIP_MAX_XML_UNCOMPRESSED,
+            "compression_ratio": ZIP_MAX_COMPRESSION_RATIO,
+            "ratio_minimum_uncompressed_bytes": ZIP_RATIO_MIN_UNCOMPRESSED,
+        },
+    }
 
 
 def parse_xml(archive: zipfile.ZipFile, part: str) -> ET.Element:
@@ -222,6 +367,133 @@ def validate_content_types(archive: zipfile.ZipFile) -> None:
             raise CheckError(f"slide part has an invalid or missing content type: {part}")
 
 
+def relationship_kind(value: str) -> str:
+    return re.split(r"[/#]", value.rstrip("/"))[-1].lower()
+
+
+def unsafe_embed_inventory(archive: zipfile.ZipFile) -> dict[str, object]:
+    """Find unsafe active content by path, relationship, content type, and XML marker."""
+    names = set(archive.namelist())
+    defaults, overrides = content_type_map(archive)
+    package_parts = sorted(
+        name for name in names
+        if not name.endswith("/")
+        and (
+            name.lower().endswith("vbaproject.bin")
+            or "/embeddings/" in name.lower()
+            or "/oleobjects/" in name.lower()
+            or "/activex/" in name.lower()
+        )
+    )
+    unsafe_internal_relationships: list[dict[str, object]] = []
+    external_media: list[dict[str, object]] = []
+    external_other: list[dict[str, object]] = []
+    for rel_part in sorted(name for name in names if name.endswith(".rels")):
+        rel_root = parse_xml(archive, rel_part)
+        for relation in rel_root.findall(f"{{{REL_NS}}}Relationship"):
+            kind = relation.get("Type") or ""
+            record = {
+                "part": rel_part,
+                "id": relation.get("Id"),
+                "type": kind,
+                "target": relation.get("Target"),
+            }
+            if (relation.get("TargetMode") or "").lower() == "external":
+                lowered = kind.lower()
+                if any(word in lowered for word in (
+                    "image", "audio", "video", "media", "oleobject", "package",
+                    "control", "activex",
+                )):
+                    external_media.append(record)
+                else:
+                    external_other.append(record)
+            elif relationship_kind(kind) in UNSAFE_RELATIONSHIP_KINDS:
+                unsafe_internal_relationships.append(record)
+
+    unsafe_content_types: list[dict[str, str]] = []
+    for part in sorted(
+        name for name in names
+        if name != "[Content_Types].xml" and not name.endswith("/")
+    ):
+        content_type = package_content_type(part, defaults, overrides) or ""
+        lowered = content_type.lower()
+        if any(fragment in lowered for fragment in UNSAFE_CONTENT_TYPE_FRAGMENTS):
+            unsafe_content_types.append({"part": part, "content_type": content_type})
+
+    unsafe_xml_markers: list[dict[str, str]] = []
+    for part in sorted(name for name in names if is_xml_part(name)):
+        if part.endswith(".rels") or part == "[Content_Types].xml":
+            continue
+        root = parse_xml(archive, part)
+        for element in root.iter():
+            if element.tag.startswith("{"):
+                namespace, name = element.tag[1:].split("}", 1)
+            else:
+                namespace, name = "", element.tag
+            lowered_name = name.lower()
+            lowered_namespace = namespace.lower()
+            marked = (
+                "activex" in lowered_namespace
+                or lowered_name in {"oleobj", "oleobject"}
+                or (
+                    lowered_name in {"control", "controls", "ocx"}
+                    and (
+                        namespace == NS["p"]
+                        or "microsoft.com/office" in lowered_namespace
+                        or "schemas-microsoft-com:office" in lowered_namespace
+                    )
+                )
+            )
+            if marked:
+                unsafe_xml_markers.append({
+                    "part": part,
+                    "tag": element.tag,
+                })
+                break
+    return {
+        "package_parts": package_parts,
+        "unsafe_internal_relationships": unsafe_internal_relationships,
+        "unsafe_content_types": unsafe_content_types,
+        "unsafe_xml_markers": unsafe_xml_markers,
+        "external_media": external_media,
+        "external_other": external_other,
+    }
+
+
+def image_package_inventory(
+    archive: zipfile.ZipFile,
+) -> dict[str, list[dict[str, object]]]:
+    """Index every image/* package part and any internal relationships to it."""
+    names = set(archive.namelist())
+    defaults, overrides = content_type_map(archive)
+    result: dict[str, list[dict[str, object]]] = {
+        part: []
+        for part in sorted(names)
+        if not part.endswith("/")
+        and (package_content_type(part, defaults, overrides) or "").lower().startswith("image/")
+    }
+    for rel_part in sorted(name for name in names if name.endswith(".rels")):
+        owner = relationship_owner(rel_part)
+        if owner is None:
+            continue
+        root = parse_xml(archive, rel_part)
+        for relation in root.findall(f"{{{REL_NS}}}Relationship"):
+            if (relation.get("TargetMode") or "").lower() == "external":
+                continue
+            resolved = resolve_target(owner, relation.get("Target") or "")
+            if not resolved or resolved not in result:
+                continue
+            content_type = package_content_type(resolved, defaults, overrides) or ""
+            result[resolved].append({
+                "owner": owner,
+                "relationship_part": rel_part,
+                "relationship_id": relation.get("Id"),
+                "relationship_type": relation.get("Type"),
+                "content_type": content_type,
+            })
+    return result
+
+
 def validate_root_office_document(archive: zipfile.ZipFile) -> None:
     root_rels = relationships(archive, "")
     office_documents = [
@@ -269,6 +541,34 @@ def validate_slide_blips(
                     )
 
 
+def static_module_specifiers(text: str) -> list[str]:
+    """Extract static ESM specifiers, including conventional multiline imports."""
+    declarations = list(MODULE_DECLARATION_PATTERN.finditer(text))
+    imports: set[str] = set()
+    for index, declaration in enumerate(declarations):
+        kind = declaration.group(1)
+        start = declaration.end()
+        if kind == "import" and text[start:].lstrip().startswith("."):
+            # `import.meta` is an expression, not a module declaration.
+            continue
+        next_start = (
+            declarations[index + 1].start()
+            if index + 1 < len(declarations)
+            else len(text)
+        )
+        semicolon = text.find(";", start, next_start)
+        end = semicolon + 1 if semicolon >= 0 else next_start
+        statement = text[start:end]
+        match = re.search(r"\bfrom\s*['\"]([^'\"]+)['\"]", statement, re.DOTALL)
+        if match is None and kind == "import":
+            match = re.match(r"\s*['\"]([^'\"]+)['\"]", statement, re.DOTALL)
+        if match is not None:
+            imports.add(match.group(1))
+        elif kind == "import":
+            raise CheckError("build source contains an unparseable import declaration")
+    return sorted(imports)
+
+
 def validate_build_source(path: Path) -> dict[str, object]:
     try:
         source_bytes = path.read_bytes()
@@ -285,14 +585,17 @@ def validate_build_source(path: Path) -> dict[str, object]:
     if any(pattern.search(text) for pattern in SECRET_PATTERNS):
         raise CheckError("build source contains high-confidence secret material")
 
-    imports = sorted({
-        match.group(1)
-        for pattern in IMPORT_PATTERNS
-        for match in pattern.finditer(text)
-    })
+    if DYNAMIC_IMPORT_PATTERN.search(text):
+        raise CheckError("build source contains a computed or dynamic import")
+    if REQUIRE_PATTERN.search(text):
+        raise CheckError("build source contains require(), which is not portable here")
+    if CREATE_REQUIRE_PATTERN.search(text):
+        raise CheckError("build source contains createRequire, which can bypass import checks")
+
+    imports = static_module_specifiers(text)
     unsupported = [
         specifier for specifier in imports
-        if specifier not in BUILD_SOURCE_PACKAGES and not specifier.startswith("node:")
+        if specifier not in BUILD_SOURCE_PACKAGES and specifier not in SAFE_NODE_MODULES
     ]
     if unsupported:
         raise CheckError(
@@ -305,6 +608,8 @@ def validate_build_source(path: Path) -> dict[str, object]:
             "build source imports more than one authoring runtime: "
             + ", ".join(authoring_packages)
         )
+    if not authoring_packages:
+        raise CheckError("build source must import exactly one authoring runtime")
     return check_item(
         "build_source.portable", "PASS",
         "Build source is non-empty UTF-8 and contains no machine-local path, high-confidence secret, or unshipped helper import",
@@ -567,6 +872,7 @@ def has_unicode_script_character(value: str) -> list[str]:
 
 def slide1_compatibility_checks(
     slide: ET.Element,
+    slide_number: int = 1,
 ) -> tuple[list[dict[str, object]], list[dict[str, object]], list[dict[str, object]]]:
     """Return hard failures, warnings, and passes for cross-platform-risk structures."""
     failures: list[dict[str, object]] = []
@@ -840,6 +1146,14 @@ def slide1_compatibility_checks(
             **script_evidence,
         ))
 
+    if slide_number != 1:
+        for item in failures + warnings + passes:
+            identifier = str(item.get("id", ""))
+            if identifier.startswith("slide1."):
+                item["id"] = f"slide{slide_number}." + identifier.removeprefix("slide1.")
+            item["message"] = str(item.get("message", "")).replace(
+                "Slide 1", f"Slide {slide_number}"
+            )
     return failures, warnings, passes
 
 
@@ -864,17 +1178,29 @@ def slide_order(archive: zipfile.ZipFile) -> tuple[list[str], tuple[int, int]]:
 
 
 def image_bearers(
-    slide: ET.Element,
-) -> tuple[list[tuple[int, int, int, int]], list[float], int, int, int]:
-    parent = {child: node for node in slide.iter() for child in node}
+    root: ET.Element,
+    *,
+    include_shapes: bool = True,
+    include_background: bool = True,
+) -> tuple[list[tuple[int, int, int, int]], list[float], int, int, int, int]:
+    parent = {child: node for node in root.iter() for child in node}
     rectangles: list[tuple[int, int, int, int]] = []
     transformed_areas: list[float] = []
     grouped_count = 0
     unresolved_grouped = 0
     count = 0
-    candidates = slide.findall(".//p:pic", NS) + slide.findall(".//p:sp", NS) + slide.findall(".//p:graphicFrame", NS)
+    hidden_count = 0
+    candidates = (
+        root.findall(".//p:pic", NS)
+        + root.findall(".//p:sp", NS)
+        + root.findall(".//p:graphicFrame", NS)
+        if include_shapes else []
+    )
     for node in candidates:
         if node.find(".//a:blip", NS) is None:
+            continue
+        if image_object_hidden(node, parent):
+            hidden_count += 1
             continue
         count += 1
         ancestor = parent.get(node)
@@ -893,19 +1219,103 @@ def image_bearers(
             transformed_areas.append(transformed_area)
         elif grouped:
             unresolved_grouped += 1
-    if slide.find("./p:cSld/p:bg/p:bgPr/a:blipFill", NS) is not None:
+    if include_background and root.find("./p:cSld/p:bg/p:bgPr/a:blipFill", NS) is not None:
         count += 1
-    return rectangles, transformed_areas, count, grouped_count, unresolved_grouped
+    return (
+        rectangles,
+        transformed_areas,
+        count,
+        grouped_count,
+        unresolved_grouped,
+        hidden_count,
+    )
 
 
 def xml_boolean(value: str | None) -> bool:
     return (value or "").strip().lower() in {"1", "true", "on", "yes"}
 
 
+def xml_boolean_default(value: str | None, default: bool = True) -> bool:
+    if value is None:
+        return default
+    return xml_boolean(value)
+
+
+def related_internal_part(
+    archive: zipfile.ZipFile,
+    owner: str,
+    relationship_suffix: str,
+) -> str | None:
+    matches = [
+        relation for relation in relationships(archive, owner).values()
+        if not relation.get("external")
+        and str(relation.get("type", "")).lower().endswith(relationship_suffix.lower())
+    ]
+    if len(matches) > 1:
+        raise CheckError(
+            f"{owner} contains multiple {relationship_suffix.rsplit('/', 1)[-1]} relationships"
+        )
+    if not matches:
+        return None
+    target = matches[0].get("resolved")
+    return target if isinstance(target, str) else None
+
+
+def visible_image_layers(
+    archive: zipfile.ZipFile,
+    slide_part: str,
+    slide: ET.Element,
+) -> list[dict[str, object]]:
+    """Resolve the selected slide's visible slide/layout/master image layers."""
+    layers: list[dict[str, object]] = [
+        {"kind": "slide", "part": slide_part, "root": slide, "include_shapes": True}
+    ]
+    layout_part = related_internal_part(archive, slide_part, "/slideLayout")
+    layout: ET.Element | None = None
+    if layout_part is not None:
+        layout = parse_xml(archive, layout_part)
+        layers.append({
+            "kind": "layout",
+            "part": layout_part,
+            "root": layout,
+            "include_shapes": True,
+        })
+    master_part = (
+        related_internal_part(archive, layout_part, "/slideMaster")
+        if layout_part is not None else None
+    )
+    if master_part is not None:
+        master = parse_xml(archive, master_part)
+        show_master_shapes = (
+            xml_boolean_default(slide.get("showMasterSp"))
+            and xml_boolean_default(layout.get("showMasterSp") if layout is not None else None)
+        )
+        layers.append({
+            "kind": "master",
+            "part": master_part,
+            "root": master,
+            "include_shapes": show_master_shapes,
+        })
+
+    background_part: str | None = None
+    for layer in layers:
+        root = layer["root"]
+        if (
+            isinstance(root, ET.Element)
+            and root.find("./p:cSld/p:bg/p:bgPr/a:blipFill", NS) is not None
+        ):
+            background_part = str(layer["part"])
+            break
+    for layer in layers:
+        layer["include_background"] = layer["part"] == background_part
+    return layers
+
+
 def non_visual_properties(node: ET.Element) -> ET.Element | None:
     for path in (
         "./p:nvPicPr/p:cNvPr",
         "./p:nvSpPr/p:cNvPr",
+        "./p:nvCxnSpPr/p:cNvPr",
         "./p:nvGraphicFramePr/p:cNvPr",
         "./p:nvGrpSpPr/p:cNvPr",
     ):
@@ -915,7 +1325,7 @@ def non_visual_properties(node: ET.Element) -> ET.Element | None:
     return None
 
 
-def image_object_hidden(
+def object_marked_hidden(
     node: ET.Element,
     parents: dict[ET.Element, ET.Element],
 ) -> bool:
@@ -925,6 +1335,15 @@ def image_object_hidden(
         if properties is not None and xml_boolean(properties.get("hidden")):
             return True
         current = parents.get(current)
+    return False
+
+
+def image_object_hidden(
+    node: ET.Element,
+    parents: dict[ET.Element, ET.Element],
+) -> bool:
+    if object_marked_hidden(node, parents):
+        return True
 
     for effect_name, attribute in (
         ("alpha", "val"),
@@ -935,6 +1354,115 @@ def image_object_hidden(
             if integer(effect, attribute) == 0:
                 return True
     return False
+
+
+def segment_intersects_slide(
+    start: tuple[float, float],
+    end: tuple[float, float],
+    slide_width: int,
+    slide_height: int,
+) -> bool:
+    """Return whether a closed line segment intersects the slide rectangle."""
+    x1, y1 = start
+    x2, y2 = end
+    delta_x, delta_y = x2 - x1, y2 - y1
+    lower, upper = 0.0, 1.0
+    for direction, distance in (
+        (-delta_x, x1),
+        (delta_x, slide_width - x1),
+        (-delta_y, y1),
+        (delta_y, slide_height - y1),
+    ):
+        if direction == 0:
+            if distance < 0:
+                return False
+            continue
+        ratio = distance / direction
+        if direction < 0:
+            lower = max(lower, ratio)
+        else:
+            upper = min(upper, ratio)
+        if lower > upper:
+            return False
+    return True
+
+
+def native_object_inventory(
+    slide: ET.Element,
+    slide_width: int,
+    slide_height: int,
+) -> dict[str, object]:
+    """Count only visible, resolved native objects that intersect the slide."""
+    parents = {child: node for node in slide.iter() for child in node}
+    shapes = [
+        node for node in slide.findall(".//p:sp", NS)
+        if node.find(".//a:blip", NS) is None
+    ]
+    connectors = list(slide.findall(".//p:cxnSp", NS))
+    excluded = {
+        "hidden": 0,
+        "unreadable_geometry": 0,
+        "zero_dimensions": 0,
+        "outside_slide": 0,
+    }
+    visible_shapes = 0
+    visible_connectors = 0
+
+    for shape in shapes:
+        if object_marked_hidden(shape, parents):
+            excluded["hidden"] += 1
+            continue
+        raw_box = object_box(shape)
+        if raw_box is None:
+            excluded["unreadable_geometry"] += 1
+            continue
+        if raw_box[2] <= 0 or raw_box[3] <= 0:
+            excluded["zero_dimensions"] += 1
+            continue
+        geometry = image_box(shape, parents)
+        if geometry is None:
+            excluded["unreadable_geometry"] += 1
+            continue
+        if clip_box_to_slide(geometry[0], slide_width, slide_height) is None:
+            excluded["outside_slide"] += 1
+            continue
+        visible_shapes += 1
+
+    for connector in connectors:
+        if object_marked_hidden(connector, parents):
+            excluded["hidden"] += 1
+            continue
+        raw_box = object_box(connector)
+        if raw_box is None:
+            excluded["unreadable_geometry"] += 1
+            continue
+        if raw_box[2] < 0 or raw_box[3] < 0 or (raw_box[2] == 0 and raw_box[3] == 0):
+            excluded["zero_dimensions"] += 1
+            continue
+        geometry = image_box(connector, parents)
+        if geometry is None:
+            excluded["unreadable_geometry"] += 1
+            continue
+        x, y, width, height = geometry[0]
+        transform = connector.find("./p:spPr/a:xfrm", NS)
+        flipped = (
+            xml_boolean(transform.get("flipH") if transform is not None else None)
+            != xml_boolean(transform.get("flipV") if transform is not None else None)
+        )
+        start = (x + width, y) if flipped else (x, y)
+        end = (x, y + height) if flipped else (x + width, y + height)
+        if not segment_intersects_slide(start, end, slide_width, slide_height):
+            excluded["outside_slide"] += 1
+            continue
+        visible_connectors += 1
+
+    return {
+        "native_shapes": visible_shapes,
+        "connectors": visible_connectors,
+        "candidate_native_shapes": len(shapes),
+        "candidate_connectors": len(connectors),
+        "excluded_objects": excluded,
+    }
 
 
 def crop_rectangle(node: ET.Element) -> tuple[dict[str, int | None], bool, bool]:
@@ -967,15 +1495,24 @@ def source_raster_inset_inventory(
     source_hash: str,
     slide_width: int,
     slide_height: int,
+    slide_number: int = 1,
 ) -> tuple[dict[str, object], list[str]]:
     """Inventory exact source bytes used as visible OOXML-cropped raster insets."""
+    image_parts = image_package_inventory(archive)
     matching_media = sorted(
-        part for part in archive.namelist()
-        if part.startswith("ppt/media/")
-        and not part.endswith("/")
-        and sha256_bytes(archive.read(part)) == source_hash
+        part for part in image_parts
+        if sha256_bytes(archive.read(part)) == source_hash
     )
     matching_media_set = set(matching_media)
+    source_relationships = [
+        {"image_part": part, **record}
+        for part in matching_media
+        for record in image_parts[part]
+    ]
+    non_selected_relationships = [
+        record for record in source_relationships
+        if record.get("owner") != slide_part
+    ]
     slide_rels = relationships(archive, slide_part)
     parents = {child: node for node in slide.iter() for child in node}
     image_object_tags = {
@@ -1092,12 +1629,17 @@ def source_raster_inset_inventory(
     })
     if unused_media:
         violations.append("unreferenced_source_media")
+    if non_selected_relationships:
+        violations.append("source_used_outside_inspected_slide")
     violations = sorted(set(violations))
 
     evidence: dict[str, object] = {
         "source_sha256": source_hash,
         "matching_media_parts": matching_media,
+        "matching_image_parts": matching_media,
         "unused_media_parts": unused_media,
+        "source_image_relationships": source_relationships,
+        "non_selected_source_relationships": non_selected_relationships,
         "source_media_part_count": len(matching_media),
         "source_usage_count": len(records),
         "source_object_count": len(source_object_keys),
@@ -1109,7 +1651,7 @@ def source_raster_inset_inventory(
         "policy": {
             "requires_nonzero_src_rect": True,
             "requires_visible_positive_dimensions": True,
-            "whole_page_or_mosaic_check_id": "slide1.not_flattened",
+            "whole_page_or_mosaic_check_id": f"slide{slide_number}.not_flattened",
         },
         "objects": records[:25],
         "truncated": max(0, len(records) - 25),
@@ -1167,6 +1709,7 @@ def inspect_package(
     *,
     require_single_slide: bool = False,
     build_source: Path | None = None,
+    inspect_slide: int = 1,
 ) -> dict[str, object]:
     hard_failures: list[dict[str, object]] = []
     warnings: list[dict[str, object]] = []
@@ -1184,6 +1727,12 @@ def inspect_package(
             ))
 
     try:
+        if isinstance(inspect_slide, bool) or not isinstance(inspect_slide, int) or inspect_slide < 1:
+            raise CheckError(
+                "inspect_slide must be a positive 1-based slide number",
+                identifier="inspection.slide_selection",
+                requested_slide=inspect_slide,
+            )
         if not pptx.is_file():
             raise CheckError(f"PPTX does not exist: {pptx}")
         if source and not source.is_file():
@@ -1192,6 +1741,17 @@ def inspect_package(
             raise CheckError("file is not a readable ZIP/PPTX package")
 
         with zipfile.ZipFile(pptx) as archive:
+            zip_evidence = validate_zip_budget(archive)
+            checks.append(check_item(
+                "package.unique_members", "PASS",
+                "ZIP package member names are unique",
+                member_count=zip_evidence["member_count"],
+            ))
+            checks.append(check_item(
+                "package.zip_budget", "PASS",
+                "ZIP package is within bounded member, size, XML, and compression budgets",
+                **zip_evidence,
+            ))
             corrupt = archive.testzip()
             if corrupt:
                 raise CheckError(f"corrupt ZIP member: {corrupt}")
@@ -1202,6 +1762,13 @@ def inspect_package(
             validate_relationship_targets(archive)
             validate_root_office_document(archive)
             slide_parts, (slide_width, slide_height) = slide_order(archive)
+            if inspect_slide > len(slide_parts):
+                raise CheckError(
+                    "requested slide is outside the presentation slide range",
+                    identifier="inspection.slide_selection",
+                    requested_slide=inspect_slide,
+                    slide_count=len(slide_parts),
+                )
             for slide_part in slide_parts:
                 slide = parse_xml(archive, slide_part)
                 validate_slide_blips(archive, slide_part, slide)
@@ -1209,6 +1776,17 @@ def inspect_package(
                 "package.readable", "PASS",
                 "PPTX content types, internal relationships, and slide order are readable",
                 slide_count=len(slide_parts), slide_size_emu=[slide_width, slide_height],
+            ))
+            selected_slide_part = slide_parts[inspect_slide - 1]
+            selected_slide = parse_xml(archive, selected_slide_part)
+            slide_prefix = f"slide{inspect_slide}"
+            slide_label = f"Slide {inspect_slide}"
+            checks.append(check_item(
+                "inspection.slide_selection", "PASS",
+                f"{slide_label} was selected for deep structural checks",
+                requested_slide=inspect_slide,
+                selected_part=selected_slide_part,
+                slide_count=len(slide_parts),
             ))
             if require_single_slide:
                 if len(slide_parts) == 1:
@@ -1224,73 +1802,106 @@ def inspect_package(
                         slide_count=len(slide_parts),
                     ))
 
-            forbidden = sorted(
-                name for name in names
-                if not name.endswith("/")
-                and (
-                    name.endswith("vbaProject.bin")
-                    or "/embeddings/" in name
-                    or "/oleObjects/" in name
-                    or "/activeX/" in name
+            unsafe = unsafe_embed_inventory(archive)
+            unsafe_evidence = {
+                key: unsafe[key]
+                for key in (
+                    "package_parts",
+                    "unsafe_internal_relationships",
+                    "unsafe_content_types",
+                    "unsafe_xml_markers",
+                    "external_media",
                 )
-            )
-            external_media = []
-            external_other = []
-            for rel_part in sorted(name for name in names if name.endswith(".rels")):
-                rel_root = parse_xml(archive, rel_part)
-                for rel in rel_root.findall(f"{{{REL_NS}}}Relationship"):
-                    if (rel.get("TargetMode") or "").lower() != "external":
-                        continue
-                    kind = (rel.get("Type") or "").lower()
-                    item = {"part": rel_part, "type": rel.get("Type"), "target": rel.get("Target")}
-                    if any(word in kind for word in ("image", "audio", "video", "media", "oleobject", "package")):
-                        external_media.append(item)
-                    else:
-                        external_other.append(item)
-            if forbidden or external_media:
+            }
+            if any(unsafe_evidence.values()):
                 hard_failures.append(check_item(
                     "package.no_unsafe_embeds", "FAIL",
-                    "Package contains a macro, OLE/embedded object, ActiveX part, or external media",
-                    package_parts=forbidden, external_media=external_media,
+                    "Package contains a macro, OLE/package object, ActiveX/control marker, or external media",
+                    **unsafe_evidence,
                 ))
             else:
                 checks.append(check_item(
                     "package.no_unsafe_embeds", "PASS",
-                    "No macro, OLE/embedded object, ActiveX part, or external media was found",
+                    "No macro, OLE/package object, ActiveX/control marker, or external media was found",
                 ))
-            if external_other:
+            if unsafe["external_other"]:
                 warnings.append(check_item(
                     "package.external_relationships", "WARN",
                     "Package contains external relationships such as hyperlinks",
-                    relationships=external_other,
+                    relationships=unsafe["external_other"],
                 ))
 
-            slide1 = parse_xml(archive, slide_parts[0])
-            native_shapes = [
-                node for node in slide1.findall(".//p:sp", NS)
-                if node.find(".//a:blip", NS) is None
+            native_inventory = native_object_inventory(
+                selected_slide, slide_width, slide_height
+            )
+            native_shapes = int(native_inventory["native_shapes"])
+            connectors = int(native_inventory["connectors"])
+            text_runs = [
+                node.text or "" for node in selected_slide.findall(".//a:t", NS)
+                if (node.text or "").strip()
             ]
-            connectors = slide1.findall(".//p:cxnSp", NS)
-            text_runs = [node.text or "" for node in slide1.findall(".//a:t", NS) if (node.text or "").strip()]
-            (
-                rectangles,
-                transformed_areas,
-                raster_count,
-                grouped_raster_count,
-                unresolved_grouped_raster,
-            ) = image_bearers(slide1)
-            if not native_shapes and not connectors:
+            if native_shapes == 0 and connectors == 0:
                 hard_failures.append(check_item(
-                    "slide1.native_objects", "FAIL",
-                    "Slide 1 contains no native shape or connector",
-                    native_shapes=0, connectors=0, text_runs=len(text_runs),
+                    f"{slide_prefix}.native_objects", "FAIL",
+                    f"{slide_label} contains no visible native shape or connector with readable on-slide geometry",
+                    **native_inventory,
+                    text_runs=len(text_runs),
                 ))
             else:
                 checks.append(check_item(
-                    "slide1.native_objects", "PASS",
-                    "Slide 1 contains editable native objects",
-                    native_shapes=len(native_shapes), connectors=len(connectors), text_runs=len(text_runs),
+                    f"{slide_prefix}.native_objects", "PASS",
+                    f"{slide_label} contains visible editable native objects with readable on-slide geometry",
+                    **native_inventory,
+                    text_runs=len(text_runs),
                 ))
+
+            rectangles: list[tuple[int, int, int, int]] = []
+            transformed_areas: list[float] = []
+            raster_count = 0
+            grouped_raster_count = 0
+            unresolved_grouped_raster = 0
+            hidden_raster_count = 0
+            has_image_background = False
+            layer_evidence: list[dict[str, object]] = []
+            for layer in visible_image_layers(archive, selected_slide_part, selected_slide):
+                layer_root = layer["root"]
+                layer_part = str(layer["part"])
+                if not isinstance(layer_root, ET.Element):
+                    continue
+                if bool(layer["include_shapes"]) or bool(layer["include_background"]):
+                    validate_slide_blips(archive, layer_part, layer_root)
+                (
+                    layer_rectangles,
+                    layer_areas,
+                    layer_rasters,
+                    layer_grouped,
+                    layer_unresolved,
+                    layer_hidden,
+                ) = image_bearers(
+                    layer_root,
+                    include_shapes=bool(layer["include_shapes"]),
+                    include_background=bool(layer["include_background"]),
+                )
+                rectangles.extend(layer_rectangles)
+                transformed_areas.extend(layer_areas)
+                raster_count += layer_rasters
+                grouped_raster_count += layer_grouped
+                unresolved_grouped_raster += layer_unresolved
+                hidden_raster_count += layer_hidden
+                layer_background = bool(layer["include_background"]) and (
+                    layer_root.find("./p:cSld/p:bg/p:bgPr/a:blipFill", NS) is not None
+                )
+                has_image_background = has_image_background or layer_background
+                layer_evidence.append({
+                    "kind": layer["kind"],
+                    "part": layer_part,
+                    "shapes_visible": bool(layer["include_shapes"]),
+                    "image_background_visible": layer_background,
+                    "raster_objects": layer_rasters,
+                    "grouped_raster_objects": layer_grouped,
+                    "unresolved_grouped_raster_objects": layer_unresolved,
+                    "hidden_raster_objects": layer_hidden,
+                })
 
             slide_area = slide_width * slide_height
             clipped_rectangles: list[tuple[int, int, int, int]] = []
@@ -1309,36 +1920,39 @@ def inspect_package(
                 min(union_area(clipped_rectangles), sum(visible_areas)) / slide_area
                 if clipped_rectangles else 0.0
             )
-            has_image_background = slide1.find("./p:cSld/p:bg/p:bgPr/a:blipFill", NS) is not None
             raster_simulation = has_image_background or max_ratio >= 0.85 or (raster_count >= 2 and union_ratio >= 0.80)
             if raster_simulation:
                 hard_failures.append(check_item(
-                    "slide1.not_flattened", "FAIL",
-                    "Slide 1 appears to use a whole-page image or image mosaic",
+                    f"{slide_prefix}.not_flattened", "FAIL",
+                    f"{slide_label} appears to use a whole-page image or image mosaic across its visible slide/layout/master layers",
                     raster_objects=raster_count,
                     grouped_raster_objects=grouped_raster_count,
                     largest_coverage=round(max_ratio, 4),
                     union_coverage=round(union_ratio, 4),
                     image_background=has_image_background,
+                    layers=layer_evidence,
                 ))
             else:
                 checks.append(check_item(
-                    "slide1.not_flattened", "PASS",
-                    "No whole-page image or large image mosaic was detected",
+                    f"{slide_prefix}.not_flattened", "PASS",
+                    f"No whole-page image or large image mosaic was detected on {slide_label} or its visible inherited layers",
                     raster_objects=raster_count,
                     grouped_raster_objects=grouped_raster_count,
                     largest_coverage=round(max_ratio, 4),
                     union_coverage=round(union_ratio, 4),
+                    hidden_raster_objects=hidden_raster_count,
+                    layers=layer_evidence,
                 ))
             if unresolved_grouped_raster:
                 warnings.append(check_item(
-                    "slide1.grouped_raster_geometry", "WARN",
-                    "A grouped raster object has an incomplete transform and needs visual confirmation",
+                    f"{slide_prefix}.grouped_raster_geometry", "WARN",
+                    f"A visible grouped raster object on {slide_label} or an inherited layer has an incomplete transform and needs visual confirmation",
                     unresolved_objects=unresolved_grouped_raster,
+                    layers=layer_evidence,
                 ))
 
             compatibility_failures, compatibility_warnings, compatibility_passes = (
-                slide1_compatibility_checks(slide1)
+                slide1_compatibility_checks(selected_slide, inspect_slide)
             )
             hard_failures.extend(compatibility_failures)
             warnings.extend(compatibility_warnings)
@@ -1348,11 +1962,12 @@ def inspect_package(
                 source_hash = sha256_file(source)
                 inset_evidence, inset_violations = source_raster_inset_inventory(
                     archive,
-                    slide_parts[0],
-                    slide1,
+                    selected_slide_part,
+                    selected_slide,
                     source_hash,
                     slide_width,
                     slide_height,
+                    inspect_slide,
                 )
                 if inset_violations:
                     warnings.append(check_item(
@@ -1412,7 +2027,11 @@ def inspect_package(
                     "No --source was supplied, so the reference slide identity was not checked",
                 ))
 
-    except (OSError, zipfile.BadZipFile, CheckError) as exc:
+    except CheckError as exc:
+        hard_failures.append(check_item(
+            exc.identifier, "FAIL", str(exc), **exc.evidence
+        ))
+    except (OSError, RuntimeError, NotImplementedError, EOFError, zipfile.BadZipFile) as exc:
         hard_failures.append(check_item("package.readable", "FAIL", str(exc)))
 
     return {
@@ -1421,6 +2040,7 @@ def inspect_package(
         "pptx": str(pptx),
         "source": str(source) if source else None,
         "build_source": str(build_source) if build_source else None,
+        "inspect_slide": inspect_slide,
         "hard_failures": hard_failures,
         "warnings": warnings,
         "checks": checks,
@@ -1438,6 +2058,16 @@ def write_report(report: dict[str, object], output: Path | None) -> None:
     temporary.write_text(rendered, encoding="utf-8")
     os.replace(temporary, target)
     print(f"{report['status']}: {target}")
+
+
+def positive_slide_number(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("slide must be a positive integer") from exc
+    if number < 1:
+        raise argparse.ArgumentTypeError("slide must be a positive integer")
+    return number
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1461,6 +2091,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="require exactly one editable slide and keep --source external to the PPTX",
     )
+    parser.add_argument(
+        "--slide",
+        type=positive_slide_number,
+        default=1,
+        metavar="N",
+        help="1-based slide number to deep-inspect (default: 1)",
+    )
     parser.add_argument("--output", type=Path, help="optional JSON report path")
     return parser
 
@@ -1472,6 +2109,7 @@ def main(argv: list[str] | None = None) -> int:
         args.source,
         require_single_slide=args.require_single_slide,
         build_source=args.build_source,
+        inspect_slide=args.slide,
     )
     write_report(report, args.output)
     return 0 if report["status"] == "PASS" else 1

@@ -88,17 +88,6 @@ https://github.com/SciToolsmith/sci-diagram-pptx/tree/main/skills/sci-diagram-pp
 
 安装后可用 `$sci-diagram-pptx` 显式调用。如果没有立即出现，请重启 Codex。
 
-<details>
-<summary>手动安装</summary>
-
-```bash
-git clone https://github.com/SciToolsmith/sci-diagram-pptx.git
-mkdir -p ~/.codex/skills
-cp -R sci-diagram-pptx/skills/sci-diagram-pptx ~/.codex/skills/
-```
-
-</details>
-
 <a id="usage"></a>
 
 ## 使用
@@ -110,9 +99,36 @@ $sci-diagram-pptx 把这张科研流程图忠实重建为原生可编辑 PPTX，
 保留文字、公式、层级和连线关系，不要重新设计。
 ```
 
-也可以要求它修复已有 PPTX、只做结构检查，或明确重建混合图中的某个示意图面板。只检查时不会创建交付文件夹；修复源码若依赖原始 PPTX，会把该输入依赖一并保留。
+同一个 Skill 提供三条清晰路径：
 
-Skill 对用户保持同一种调用方式。Codex 桌面优先使用内置 Presentations / Artifact Tool；Linux 服务可以由宿主固定设置 `SCI_DIAGRAM_RUNTIME=pptxgenjs`，使用 PptxGenJS 构建并通过 LibreOffice 进行服务器渲染检查。一次任务只使用一个后端，不在生成途中切换。
+| 目标 | 说法示例 | 结果 |
+| --- | --- | --- |
+| 重建 | “把这张图复刻成原生可编辑 PPTX” | 原图、单页 PPTX、实际执行的 `build.mjs` |
+| 修复 | “修复这个 PPTX 的第 3 页，其他页面不变” | 新 PPTX、`build.mjs` 与重新执行修复所需的最少输入依赖 |
+| 检查 | “只检查这个 PPTX 的第 3 页，不要修改” | 只返回诊断，不创建交付文件夹 |
+
+多页文件应明确目标页；多个目标页会逐页深检，不默认把整个 deck 当作反复优化任务。Codex 桌面优先使用内置 Presentations / Artifact Tool；宿主配置完整依赖后，Linux 服务也可固定使用 PptxGenJS。一次任务只使用一个后端，不在生成途中切换。
+
+<details>
+<summary><strong>Linux / PptxGenJS 宿主配置</strong></summary>
+
+便携路线要求 Node.js 20+、PptxGenJS 4.0.x、Python 3.10+、LibreOffice 和 `pdftoppm`。当前阶段用于标准形状、文字、连线和局部图片的 Reconstruction，不宣称能导入并保留现有多页 PPTX。以下命令以 Ubuntu/Debian 和仓库根目录为例：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends \
+  libreoffice-impress poppler-utils fonts-noto-cjk fonts-noto-core fonts-liberation
+python3 -m pip install -r requirements-ci.txt
+npm ci --ignore-scripts --no-audit --no-fund
+SCI_DIAGRAM_RUNTIME=pptxgenjs \
+  node skills/sci-diagram-pptx/scripts/probe_runtime.mjs \
+    --runtime pptxgenjs --task-dir "$PWD"
+python3 -B tests/test_portable_runtime.py
+```
+
+`$skill-installer` 只安装 Skill，不替宿主安装上述系统或 Node 依赖。生产宿主应在用户任务开始前固定依赖，并把实际任务目录传给 `--task-dir` 复检；把生成的 `build.mjs` 视为不受信任的任务代码，在隔离目录中关闭网络并限制进程、时间、内存和文件系统访问，不向任务暴露服务凭据。
+
+</details>
 
 <a id="scope"></a>
 
@@ -143,14 +159,14 @@ Skill 对用户保持同一种调用方式。Codex 桌面优先使用内置 Pres
 从上传原图裁出的局部照片或结果图直接嵌入 PPTX，不额外交付裁剪文件。只有用户另外提供、且构建实际依赖的高清或矢量素材，才增加可选 `assets/` 目录。
 
 ```text
-确认目标 → 梳理结构 → 原生重建 → 渲染 + 结构检查 → 阻断项集中修复一次 → 交付
+确认目标 → 梳理结构 → 原生重建 → 渲染 + 结构检查 → 若有阻断项，集中修复一次 → 停止并交付或报告
 ```
 
 - **单页原生可编辑**：PPTX 只保留重建页，优先使用 PowerPoint 形状、文本框和连接线；照片、实验结果与复杂小图保留为独立、可替换的局部图片，不用整页截图冒充编辑性。
 - **方向与拓扑显式**：构建源码明确记录关系的起点、终点、方向、双向性和标签，不依据圆形或环形排布猜测循环。
 - **可对照、可执行**：源图保持外置；`build.mjs` 是实际运行并生成该 PPTX 的源码，声明所用后端和版本，不包含本机绝对路径，也不依赖未交付的本地 helper。
 - **科学含义优先**：保护文字、公式、方向和拓扑；歧义可能改变含义时先询问用户。
-- **聚焦验证**：完成一次全图渲染和一次结构检查；只为明显阻断项集中修复，避免无休止追逐像素微差。
+- **聚焦验证**：完成一次全图渲染和一次结构检查；只为明显阻断项集中修复一次，第二次检查后停止并报告，不无休止追逐像素微差。
 - **跨平台务实**：`editable.pptx` 优先使用稳定的标准形状、独立文本框、明确字体和留白；仅在公式、自定义几何、密集文字等兼容风险存在或用户明确要求时，增加一次真实 PowerPoint 冒烟检查。
 
 [查看完整 Skill 工作流与质量规则](skills/sci-diagram-pptx/SKILL.md)
@@ -164,9 +180,11 @@ Skill 对用户保持同一种调用方式。Codex 桌面优先使用内置 Pres
 python3 -m pip install -r requirements-ci.txt
 python3 tests/test_panel_crop.py
 python3 tests/test_check.py
+npm ci --ignore-scripts --no-audit --no-fund
+python3 tests/test_portable_runtime.py
 ```
 
-服务器便携路线另有运行时探测、PptxGenJS 合成构建和 LibreOffice 渲染测试；LibreOffice 通过只代表服务器可打开与导出，不等于所有 PowerPoint 平台像素一致。
+最后两条命令验证 PptxGenJS 合成构建、运行时探测和 LibreOffice 渲染；需要先安装上文列出的系统依赖。LibreOffice 通过只代表服务器可打开与导出，不等于所有 PowerPoint 平台像素一致。
 
 欢迎通过 Issues 或 Pull Requests 贡献修复。请勿提交来源不明的论文截图、第三方素材或带本机隐私信息的文件。
 
@@ -185,7 +203,7 @@ SciDiagram PPTX 是独立社区项目，与 OpenAI、Microsoft、Nature、Spring
 
 ### What it does
 
-SciDiagram PPTX reconstructs scientific frameworks, mechanism diagrams, and research flowcharts as native editable PowerPoint shapes, text, connectors, and replaceable local image insets. It preserves content and explicit edge direction instead of redesigning the source or hiding it behind a full-slide bitmap.
+SciDiagram PPTX reconstructs scientific frameworks, mechanism diagrams, and research flowcharts as native editable PowerPoint shapes, text, connectors, and replaceable local image insets. It can also repair named slides in an existing PPTX or inspect named slides without modification. It preserves content and explicit edge direction instead of redesigning the source or hiding it behind a full-slide bitmap.
 
 For charts whose evidence is encoded by axes, scales, and data-driven geometry, use [SciPlot](https://github.com/SciToolsmith/sci-plot) instead.
 

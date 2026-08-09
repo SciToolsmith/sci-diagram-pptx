@@ -91,6 +91,8 @@ const INSETS = [
     frameBox: { x: 850, y: 165, w: 250, h: 180 },
     role: "contextual",
     altText: "Replaceable local source inset",
+    // Set only after confirming the file has no active EXIF orientation.
+    sourceOrientation: "normalized",
   },
 ];
 
@@ -108,8 +110,17 @@ function fail(message) {
 }
 
 function sourcePath(relativePath) {
+  if (typeof relativePath !== "string" || !relativePath || path.isAbsolute(relativePath)) {
+    fail("source assets must use non-empty paths relative to build.mjs");
+  }
   const resolved = path.resolve(BUILD_DIR, relativePath);
-  if (!fs.existsSync(resolved)) fail(`missing source asset: ${relativePath}`);
+  const relative = path.relative(BUILD_DIR, resolved);
+  if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    fail(`source asset escapes the build directory: ${relativePath}`);
+  }
+  if (!fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
+    fail(`missing source asset: ${relativePath}`);
+  }
   return resolved;
 }
 
@@ -157,6 +168,9 @@ function validatePortableMap() {
   const insetIds = new Set();
   for (const inset of INSETS) {
     if (!inset.id || insetIds.has(inset.id)) fail(`duplicate or empty inset id: ${inset.id}`);
+    if (inset.sourceOrientation !== "normalized") {
+      fail(`${inset.id} requires an orientation-normalized source image`);
+    }
     for (const key of ["sourceBox", "frameBox"]) {
       const box = inset[key];
       if (!box || !(box.w > 0 && box.h > 0)) fail(`${inset.id} has an invalid ${key}`);

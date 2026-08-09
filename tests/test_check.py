@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import base64
+import struct
 import sys
 import tempfile
 import unittest
+import warnings
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "skills" / "sci-diagram-pptx" / "scripts"
@@ -183,6 +186,22 @@ def picture(
     )
 
 
+def connector(
+    object_id: int,
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+) -> str:
+    return (
+        f'<p:cxnSp><p:nvCxnSpPr><p:cNvPr id="{object_id}" name="connector_{object_id}"/>'
+        '<p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr><p:spPr><a:xfrm>'
+        f'<a:off x="{x}" y="{y}"/><a:ext cx="{width}" cy="{height}"/>'
+        '</a:xfrm><a:prstGeom prst="line"><a:avLst/></a:prstGeom>'
+        '</p:spPr></p:cxnSp>'
+    )
+
+
 def make_deck(root: Path, variant: str = "good") -> tuple[Path, Path]:
     source = root / "source.png"
     source.write_bytes(PNG)
@@ -194,7 +213,16 @@ def make_deck(root: Path, variant: str = "good") -> tuple[Path, Path]:
         "unicode_script", "native_baseline",
     }
     node_variant = variant.removeprefix("font_") if variant in {"font_missing", "font_partial", "font_theme"} else variant
-    slide1_children = node(node_variant if variant in node_variants else "good")
+    invalid_native_variants = {
+        "one_slide_hidden_native_84_raster",
+        "one_slide_zero_native_84_raster",
+        "one_slide_offslide_native_84_raster",
+        "one_slide_vertical_connector",
+    }
+    slide1_children = (
+        "" if variant in invalid_native_variants
+        else node(node_variant if variant in node_variants else "good")
+    )
     if variant in {"office_math_valid", "office_math_empty", "office_math_invalid"}:
         slide1_children += office_math(variant.removeprefix("office_math_"))
     slide1_rels = [("rId1", f"{R}/slideLayout", "../slideLayouts/slideLayout1.xml", False)]
@@ -205,14 +233,25 @@ def make_deck(root: Path, variant: str = "good") -> tuple[Path, Path]:
         media["ppt/media/embedded-source.png"] = PNG
     elif variant in {
         "one_slide_source_inset",
+        "one_slide_nonstandard_source_inset",
         "one_slide_hidden_source_inset",
         "one_slide_zero_source_inset",
         "one_slide_full_source_inset",
         "one_slide_four_source_insets",
         "one_slide_source_mosaic",
     }:
-        slide1_rels.append(("rId2", f"{R}/image", "../media/embedded-source.png", False))
-        media["ppt/media/embedded-source.png"] = PNG
+        source_target = (
+            "../assets/embedded-source.png"
+            if variant == "one_slide_nonstandard_source_inset"
+            else "../media/embedded-source.png"
+        )
+        source_part = (
+            "ppt/assets/embedded-source.png"
+            if variant == "one_slide_nonstandard_source_inset"
+            else "ppt/media/embedded-source.png"
+        )
+        slide1_rels.append(("rId2", f"{R}/image", source_target, False))
+        media[source_part] = PNG
         if variant in {"one_slide_four_source_insets", "one_slide_source_mosaic"}:
             if variant == "one_slide_source_mosaic":
                 boxes = [
@@ -244,6 +283,33 @@ def make_deck(root: Path, variant: str = "good") -> tuple[Path, Path]:
                 crop=True,
                 hidden=variant == "one_slide_hidden_source_inset",
             )
+    elif variant in {
+        "one_slide_hidden_native_84_raster",
+        "one_slide_zero_native_84_raster",
+        "one_slide_offslide_native_84_raster",
+    }:
+        native_shape = node()
+        if variant == "one_slide_hidden_native_84_raster":
+            native_shape = native_shape.replace(
+                '<p:cNvPr id="2" name="node_001"/>',
+                '<p:cNvPr id="2" name="node_001" hidden="1"/>',
+            )
+        elif variant == "one_slide_zero_native_84_raster":
+            native_shape = native_shape.replace(
+                '<a:ext cx="1828800" cy="1028700"/>',
+                '<a:ext cx="0" cy="1028700"/>',
+            )
+        else:
+            native_shape = native_shape.replace(
+                '<a:off x="914400" y="514350"/>',
+                f'<a:off x="{W + 1000}" y="514350"/>',
+            )
+        slide1_children += native_shape
+        slide1_children += picture(3, "rId2", 0, 0, int(W * 0.84), H)
+        slide1_rels.append(("rId2", f"{R}/image", "../media/84-percent.png", False))
+        media["ppt/media/84-percent.png"] = PNG
+    elif variant == "one_slide_vertical_connector":
+        slide1_children += connector(3, W // 2, H // 4, 0, H // 2)
     elif variant == "full_image":
         slide1_children += picture(3, "rId2", 0, 0, W, H)
         slide1_rels.append(("rId2", f"{R}/image", "../media/full.png", False))
@@ -293,7 +359,29 @@ def make_deck(root: Path, variant: str = "good") -> tuple[Path, Path]:
     elif variant == "external_media":
         slide1_rels.append(("rId2", f"{R}/image", "https://example.com/source.png", True))
 
-    slide1 = f'<p:sld xmlns:p="{P}" xmlns:a="{A}" xmlns:r="{R}"><p:cSld>{tree(slide1_children)}</p:cSld></p:sld>'
+    layout_children = ""
+    layout_rels: list[tuple[str, str, str, bool]] = []
+    master_xml: str | None = None
+    master_rels: list[tuple[str, str, str, bool]] = []
+    slide_attributes = ' showMasterSp="0"' if variant == "one_slide_master_hidden_image" else ""
+    if variant == "one_slide_layout_full_image":
+        layout_children = picture(30, "rId2", 0, 0, W, H)
+        layout_rels.append(("rId2", f"{R}/image", "../assets/layout.png", False))
+        media["ppt/assets/layout.png"] = PNG
+    elif variant == "one_slide_layout_source_inset":
+        layout_children = picture(30, "rId2", W // 10, H // 10, W // 10, H // 10, crop=True)
+        layout_rels.append(("rId2", f"{R}/image", "../assets/layout-source.png", False))
+        media["ppt/assets/layout-source.png"] = PNG
+    elif variant in {"one_slide_master_full_image", "one_slide_master_hidden_image"}:
+        layout_rels.append(("rId1", f"{R}/slideMaster", "../slideMasters/slideMaster1.xml", False))
+        master_xml = (
+            f'<p:sldMaster xmlns:p="{P}" xmlns:a="{A}" xmlns:r="{R}">'
+            f'<p:cSld>{tree(picture(40, "rId2", 0, 0, W, H))}</p:cSld></p:sldMaster>'
+        )
+        master_rels.append(("rId2", f"{R}/image", "../assets/master.png", False))
+        media["ppt/assets/master.png"] = PNG
+
+    slide1 = f'<p:sld xmlns:p="{P}" xmlns:a="{A}" xmlns:r="{R}"{slide_attributes}><p:cSld>{tree(slide1_children)}</p:cSld></p:sld>'
     slide2 = f'<p:sld xmlns:p="{P}" xmlns:a="{A}" xmlns:r="{R}"><p:cSld>{tree(picture(2, "rId2", 0, 0, W, H, variant == "crop"))}</p:cSld></p:sld>'
 
     slide_ids = '<p:sldId id="256" r:id="rId1"/>'
@@ -310,6 +398,13 @@ def make_deck(root: Path, variant: str = "good") -> tuple[Path, Path]:
     deck = root / f"{variant}.pptx"
     with zipfile.ZipFile(deck, "w", zipfile.ZIP_DEFLATED) as archive:
         declared_types = content_types(1 if one_slide else 2)
+        if master_xml is not None:
+            declared_types = declared_types.replace(
+                "</Types>",
+                '<Override PartName="/ppt/slideMasters/slideMaster1.xml" '
+                'ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>'
+                "</Types>",
+            )
         if variant == "macro":
             declared_types = declared_types.replace(
                 "</Types>",
@@ -341,8 +436,19 @@ def make_deck(root: Path, variant: str = "good") -> tuple[Path, Path]:
         archive.writestr("ppt/slides/_rels/slide1.xml.rels", rels(slide1_rels))
         archive.writestr(
             "ppt/slideLayouts/slideLayout1.xml",
-            f'<p:sldLayout xmlns:p="{P}" xmlns:a="{A}"><p:cSld>{tree()}</p:cSld></p:sldLayout>',
+            f'<p:sldLayout xmlns:p="{P}" xmlns:a="{A}" xmlns:r="{R}"><p:cSld>{tree(layout_children)}</p:cSld></p:sldLayout>',
         )
+        if layout_rels:
+            archive.writestr(
+                "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+                rels(layout_rels),
+            )
+        if master_xml is not None:
+            archive.writestr("ppt/slideMasters/slideMaster1.xml", master_xml)
+            archive.writestr(
+                "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+                rels(master_rels),
+            )
         if not one_slide:
             archive.writestr("ppt/slides/slide2.xml", slide2)
             archive.writestr("ppt/slides/_rels/slide2.xml.rels", rels([
@@ -364,12 +470,43 @@ def make_deck(root: Path, variant: str = "good") -> tuple[Path, Path]:
     return deck, source
 
 
+def rewrite_deck(
+    deck: Path,
+    replacements: dict[str, str | bytes | None],
+    additions: dict[str, str | bytes] | None = None,
+) -> None:
+    temporary = deck.with_name(deck.name + ".rewrite")
+    with zipfile.ZipFile(deck) as source, zipfile.ZipFile(
+        temporary, "w", zipfile.ZIP_DEFLATED
+    ) as target:
+        for info in source.infolist():
+            replacement = replacements.get(info.filename, source.read(info.filename))
+            if replacement is None:
+                continue
+            target.writestr(info, replacement)
+        for name, value in (additions or {}).items():
+            target.writestr(name, value)
+    temporary.replace(deck)
+
+
+def mark_first_zip_member_encrypted(deck: Path) -> None:
+    payload = bytearray(deck.read_bytes())
+    for signature, flag_offset in ((b"PK\x03\x04", 6), (b"PK\x01\x02", 8)):
+        position = payload.find(signature)
+        if position < 0:
+            raise AssertionError(f"missing ZIP signature {signature!r}")
+        flags = struct.unpack_from("<H", payload, position + flag_offset)[0]
+        struct.pack_into("<H", payload, position + flag_offset, flags | 0x1)
+    deck.write_bytes(payload)
+
+
 class CheckPptxTests(unittest.TestCase):
     def report(
         self,
         variant: str,
         *,
         require_single_slide: bool = False,
+        inspect_slide: int = 1,
     ) -> dict[str, object]:
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
@@ -378,6 +515,7 @@ class CheckPptxTests(unittest.TestCase):
             deck,
             source,
             require_single_slide=require_single_slide,
+            inspect_slide=inspect_slide,
         )
 
     def ids(self, report: dict[str, object]) -> set[str]:
@@ -472,6 +610,37 @@ class CheckPptxTests(unittest.TestCase):
         report = self.report("full_image")
         self.assertIn("slide1.not_flattened", self.ids(report))
 
+    def test_hidden_zero_or_offslide_shape_does_not_satisfy_native_objects(self) -> None:
+        variants = {
+            "one_slide_hidden_native_84_raster": "hidden",
+            "one_slide_zero_native_84_raster": "zero_dimensions",
+            "one_slide_offslide_native_84_raster": "outside_slide",
+        }
+        for variant, excluded_reason in variants.items():
+            with self.subTest(variant=variant):
+                report = self.report(variant)
+                self.assertIn("slide1.native_objects", self.ids(report))
+                self.assertNotIn("slide1.not_flattened", self.ids(report))
+                failure = next(
+                    item for item in report["hard_failures"]  # type: ignore[union-attr]
+                    if item["id"] == "slide1.native_objects"
+                )
+                self.assertEqual(
+                    failure["evidence"]["excluded_objects"][excluded_reason],  # type: ignore[index]
+                    1,
+                )
+                flattened = self.check(report, "slide1.not_flattened")
+                self.assertAlmostEqual(
+                    flattened["evidence"]["largest_coverage"], 0.84, places=3  # type: ignore[index]
+                )
+
+    def test_visible_single_axis_connector_satisfies_native_objects(self) -> None:
+        report = self.report("one_slide_vertical_connector")
+        self.assertEqual(report["status"], "PASS", report["hard_failures"])
+        native = self.check(report, "slide1.native_objects")
+        self.assertEqual(native["evidence"]["native_shapes"], 0)  # type: ignore[index]
+        self.assertEqual(native["evidence"]["connectors"], 1)  # type: ignore[index]
+
     def test_grouped_full_slide_picture_fails(self) -> None:
         report = self.report("grouped_full_image")
         self.assertIn("slide1.not_flattened", self.ids(report))
@@ -517,6 +686,69 @@ class CheckPptxTests(unittest.TestCase):
         report = self.report("external_media")
         self.assertIn("package.no_unsafe_embeds", self.ids(report))
 
+    def test_internal_ole_relationship_fails_outside_conventional_directories(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            deck, source = make_deck(Path(directory), "one_slide")
+            with zipfile.ZipFile(deck) as archive:
+                relationship_xml = archive.read(
+                    "ppt/slides/_rels/slide1.xml.rels"
+                ).decode("utf-8")
+                types_xml = archive.read("[Content_Types].xml").decode("utf-8")
+            relationship_xml = relationship_xml.replace(
+                "</Relationships>",
+                f'<Relationship Id="rId9" Type="{R}/oleObject" '
+                'Target="../custom/payload.bin"/></Relationships>',
+            )
+            types_xml = types_xml.replace(
+                "</Types>",
+                '<Default Extension="bin" ContentType="application/octet-stream"/>'
+                "</Types>",
+            )
+            rewrite_deck(
+                deck,
+                {
+                    "ppt/slides/_rels/slide1.xml.rels": relationship_xml,
+                    "[Content_Types].xml": types_xml,
+                },
+                {"ppt/custom/payload.bin": b"embedded package"},
+            )
+            report = check_pptx.inspect_package(deck, source)
+            self.assertIn("package.no_unsafe_embeds", self.ids(report))
+            failure = next(
+                item for item in report["hard_failures"]  # type: ignore[union-attr]
+                if item["id"] == "package.no_unsafe_embeds"
+            )
+            self.assertEqual(
+                failure["evidence"]["unsafe_internal_relationships"][0]["id"],  # type: ignore[index]
+                "rId9",
+            )
+
+    def test_unsafe_content_type_and_xml_marker_fail_without_path_hint(self) -> None:
+        for mode in ("content_type", "xml_marker"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                deck, source = make_deck(Path(directory), "one_slide")
+                with zipfile.ZipFile(deck) as archive:
+                    types_xml = archive.read("[Content_Types].xml").decode("utf-8")
+                    slide_xml = archive.read("ppt/slides/slide1.xml").decode("utf-8")
+                if mode == "content_type":
+                    types_xml = types_xml.replace(
+                        "</Types>",
+                        '<Override PartName="/ppt/custom/control.bin" '
+                        'ContentType="application/vnd.ms-office.activeX"/></Types>',
+                    )
+                    rewrite_deck(
+                        deck,
+                        {"[Content_Types].xml": types_xml},
+                        {"ppt/custom/control.bin": b"control"},
+                    )
+                else:
+                    slide_xml = slide_xml.replace(
+                        "</p:sld>", "<p:controls/></p:sld>"
+                    )
+                    rewrite_deck(deck, {"ppt/slides/slide1.xml": slide_xml})
+                report = check_pptx.inspect_package(deck, source)
+                self.assertIn("package.no_unsafe_embeds", self.ids(report))
+
     def test_missing_internal_media_target_fails_package_readability(self) -> None:
         report = self.report("missing_media")
         self.assertIn("package.readable", self.ids(report))
@@ -540,6 +772,54 @@ class CheckPptxTests(unittest.TestCase):
     def test_missing_root_office_document_relationship_fails(self) -> None:
         report = self.report("missing_root_relationship")
         self.assertIn("package.readable", self.ids(report))
+
+    def test_duplicate_zip_member_fails_before_ambiguous_lookup(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            deck, _ = make_deck(Path(directory), "one_slide")
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                with zipfile.ZipFile(deck, "a", zipfile.ZIP_DEFLATED) as archive:
+                    archive.writestr("ppt/presentation.xml", b"duplicate")
+            report = check_pptx.inspect_package(deck)
+            self.assertIn("package.unique_members", self.ids(report))
+
+    def test_zip_budget_preflight_has_stable_budget_evidence(self) -> None:
+        cases = (
+            ({"ZIP_MAX_MEMBERS": 1}, "member_count"),
+            ({"ZIP_MAX_ENTRY_UNCOMPRESSED": 10}, "single_member"),
+            ({"ZIP_MAX_TOTAL_UNCOMPRESSED": 100}, "total"),
+            ({"ZIP_MAX_XML_UNCOMPRESSED": 10}, "xml_member"),
+            (
+                {"ZIP_RATIO_MIN_UNCOMPRESSED": 1, "ZIP_MAX_COMPRESSION_RATIO": 1.0},
+                "compression_ratio",
+            ),
+        )
+        for patched, expected_budget in cases:
+            with self.subTest(budget=expected_budget), tempfile.TemporaryDirectory() as directory:
+                deck, _ = make_deck(Path(directory), "one_slide")
+                with mock.patch.multiple(check_pptx, **patched):
+                    report = check_pptx.inspect_package(deck)
+                self.assertIn("package.zip_budget", self.ids(report))
+                failure = next(
+                    item for item in report["hard_failures"]  # type: ignore[union-attr]
+                    if item["id"] == "package.zip_budget"
+                )
+                self.assertEqual(failure["evidence"]["budget"], expected_budget)  # type: ignore[index]
+
+    def test_encrypted_member_and_runtime_error_become_stable_failures(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            deck, _ = make_deck(Path(directory), "one_slide")
+            mark_first_zip_member_encrypted(deck)
+            report = check_pptx.inspect_package(deck)
+            self.assertIn("package.encryption", self.ids(report))
+
+        with tempfile.TemporaryDirectory() as directory:
+            deck, _ = make_deck(Path(directory), "one_slide")
+            with mock.patch.object(
+                zipfile.ZipFile, "testzip", side_effect=RuntimeError("encrypted member")
+            ):
+                report = check_pptx.inspect_package(deck)
+            self.assertIn("package.readable", self.ids(report))
 
     def test_legacy_one_slide_with_source_warns_missing_reference_slide(self) -> None:
         report = self.report("one_slide")
@@ -578,6 +858,72 @@ class CheckPptxTests(unittest.TestCase):
         companion = self.check(report, "source.external_companion")
         self.assertEqual(companion["evidence"]["qualifying_source_insets"], 1)  # type: ignore[index]
         self.assertNotIn("source.raster_inset_inventory", self.warning_ids(report))
+
+    def test_source_inventory_resolves_nonstandard_image_part_path(self) -> None:
+        report = self.report(
+            "one_slide_nonstandard_source_inset", require_single_slide=True
+        )
+        self.assertEqual(report["status"], "PASS", report["hard_failures"])
+        inventory = self.check(report, "source.raster_inset_inventory")
+        self.assertEqual(
+            inventory["evidence"]["matching_image_parts"],  # type: ignore[index]
+            ["ppt/assets/embedded-source.png"],
+        )
+
+    def test_orphan_image_part_with_exact_source_bytes_fails_single_slide_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            deck, source = make_deck(Path(directory), "one_slide")
+            rewrite_deck(
+                deck,
+                {},
+                {"ppt/orphans/unreferenced-source.png": PNG},
+            )
+            report = check_pptx.inspect_package(
+                deck, source, require_single_slide=True
+            )
+            self.assertIn("source.not_embedded", self.ids(report))
+            inventory = self.warning(report, "source.raster_inset_inventory")
+            self.assertEqual(
+                inventory["evidence"]["matching_image_parts"],  # type: ignore[index]
+                ["ppt/orphans/unreferenced-source.png"],
+            )
+            self.assertIn(
+                "unreferenced_source_media",
+                inventory["evidence"]["violations"],  # type: ignore[index]
+            )
+
+    def test_source_image_on_layout_is_not_misclassified_as_local_inset(self) -> None:
+        report = self.report(
+            "one_slide_layout_source_inset", require_single_slide=True
+        )
+        self.assertIn("source.not_embedded", self.ids(report))
+        inventory = self.warning(report, "source.raster_inset_inventory")
+        self.assertIn(
+            "source_used_outside_inspected_slide",
+            inventory["evidence"]["violations"],  # type: ignore[index]
+        )
+
+    def test_layout_and_visible_master_images_participate_in_flattening_check(self) -> None:
+        for variant in ("one_slide_layout_full_image", "one_slide_master_full_image"):
+            with self.subTest(variant=variant):
+                report = self.report(variant)
+                self.assertIn("slide1.not_flattened", self.ids(report))
+                failure = next(
+                    item for item in report["hard_failures"]  # type: ignore[union-attr]
+                    if item["id"] == "slide1.not_flattened"
+                )
+                self.assertGreaterEqual(len(failure["evidence"]["layers"]), 2)  # type: ignore[index]
+
+    def test_show_master_shapes_false_excludes_master_image(self) -> None:
+        report = self.report("one_slide_master_hidden_image")
+        self.assertEqual(report["status"], "PASS", report["hard_failures"])
+        flattened = self.check(report, "slide1.not_flattened")
+        master = next(
+            layer for layer in flattened["evidence"]["layers"]  # type: ignore[index]
+            if layer["kind"] == "master"
+        )
+        self.assertFalse(master["shapes_visible"])
+        self.assertEqual(master["raster_objects"], 0)
 
     def test_single_slide_contract_allows_multiple_small_source_insets(self) -> None:
         report = self.report("one_slide_four_source_insets", require_single_slide=True)
@@ -643,6 +989,20 @@ class CheckPptxTests(unittest.TestCase):
         self.assertTrue(args.require_single_slide)
         self.assertEqual(args.build_source, Path("build.mjs"))
 
+    def test_parser_and_api_select_a_one_based_slide(self) -> None:
+        args = check_pptx.build_parser().parse_args(["deck.pptx", "--slide", "2"])
+        self.assertEqual(args.slide, 2)
+
+        report = self.report("good", inspect_slide=2)
+        self.assertEqual(report["inspect_slide"], 2)
+        self.assertIn("slide2.native_objects", self.ids(report))
+        self.assertIn("slide2.not_flattened", self.ids(report))
+        selection = self.check(report, "inspection.slide_selection")
+        self.assertEqual(selection["evidence"]["selected_part"], "ppt/slides/slide2.xml")  # type: ignore[index]
+
+        missing = self.report("one_slide", inspect_slide=2)
+        self.assertIn("inspection.slide_selection", self.ids(missing))
+
     def test_portable_build_source_passes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -698,6 +1058,67 @@ class CheckPptxTests(unittest.TestCase):
                 if item["id"] == "build_source.portable"
             )
             self.assertIn("more than one authoring runtime", failure["message"])
+
+    def test_build_source_accepts_multiline_imports_and_safe_node_modules(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            deck, source = make_deck(root, "one_slide")
+            build = root / "build.mjs"
+            build.write_text(
+                'import fs from "node:fs";\n'
+                'import path from "node:path";\n'
+                'import { fileURLToPath } from "node:url";\n'
+                'import {\n  Presentation,\n} from "@oai/artifact-tool";\n'
+                'console.log(fs, path, fileURLToPath, Presentation);\n',
+                encoding="utf-8",
+            )
+            report = check_pptx.inspect_package(
+                deck, source, require_single_slide=True, build_source=build
+            )
+            self.assertEqual(report["status"], "PASS", report["hard_failures"])
+
+    def test_build_source_rejects_fail_closed_escape_patterns(self) -> None:
+        cases = (
+            'import {\n helper,\n} from "./helper.mjs";\nimport P from "pptxgenjs";\n',
+            'import P from "pptxgenjs";\nconst module = import(specifier);\n',
+            'import P from "pptxgenjs";\nconst module = import/*gap*/(specifier);\n',
+            'import P from "pptxgenjs";\nconst helper = require(name);\n',
+            'import P from "pptxgenjs";\nconst helper = require/*gap*/(name);\n',
+            'import P from "pptxgenjs";\nconst helper = createRequire(import.meta.url);\n',
+            'import P from "pptxgenjs";\nimport cp from "node:child_process";\n',
+            'import path from "node:path";\nconsole.log(path);\n',
+            'import P from "pptxgenjs";\nconst source = "/root/private/source.png";\n',
+            'import P from "pptxgenjs";\nconst source = "/srv/app/source.png";\n',
+        )
+        for content in cases:
+            with self.subTest(content=content), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                deck, source = make_deck(root, "one_slide")
+                build = root / "build.mjs"
+                build.write_text(content, encoding="utf-8")
+                report = check_pptx.inspect_package(
+                    deck, source, require_single_slide=True, build_source=build
+                )
+                self.assertIn("build_source.portable", self.ids(report))
+
+    def test_build_source_rejects_second_static_import_on_same_line(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            deck, source = make_deck(root, "one_slide")
+            build = root / "build.mjs"
+            build.write_text(
+                'import P from "pptxgenjs"; import helper from "./helper.mjs";\n',
+                encoding="utf-8",
+            )
+            report = check_pptx.inspect_package(
+                deck, source, require_single_slide=True, build_source=build
+            )
+            self.assertIn("build_source.portable", self.ids(report))
+            failure = next(
+                item for item in report["hard_failures"]  # type: ignore[union-attr]
+                if item["id"] == "build_source.portable"
+            )
+            self.assertIn("./helper.mjs", failure["message"])
 
     def test_machine_path_and_relative_helper_fail_build_source(self) -> None:
         machine_path = "/" + "Users/example/source.png"

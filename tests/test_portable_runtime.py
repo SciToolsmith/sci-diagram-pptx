@@ -28,14 +28,23 @@ NODE = shutil.which("node")
 class PortableRuntimeTest(unittest.TestCase):
     maxDiff = None
 
-    def run_probe(self, *, path: str | None = None) -> tuple[subprocess.CompletedProcess[str], dict]:
+    def run_probe(
+        self,
+        *,
+        task_dir: Path | None = None,
+        path: str | None = None,
+        cwd: Path | None = None,
+    ) -> tuple[subprocess.CompletedProcess[str], dict]:
         self.assertIsNotNone(NODE, "node is required")
         env = os.environ.copy()
         if path is not None:
             env["PATH"] = path
+        command = [str(NODE), str(PROBE), "--runtime", "pptxgenjs"]
+        if task_dir is not None:
+            command.extend(["--task-dir", str(task_dir)])
         result = subprocess.run(
-            [str(NODE), str(PROBE), "--runtime", "pptxgenjs"],
-            cwd=ROOT,
+            command,
+            cwd=cwd or ROOT,
             env=env,
             text=True,
             capture_output=True,
@@ -44,19 +53,23 @@ class PortableRuntimeTest(unittest.TestCase):
         return result, json.loads(result.stdout)
 
     def test_probe_reports_ready_portable_runtime(self) -> None:
-        result, report = self.run_probe()
+        result, report = self.run_probe(cwd=ROOT)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(report["requestedRuntime"], "pptxgenjs")
         self.assertEqual(report["selectedRuntime"], "pptxgenjs")
+        self.assertEqual(Path(report["taskDir"]), ROOT)
         self.assertTrue(report["ready"])
         self.assertEqual(report["missing"], [])
         self.assertTrue(report["checks"]["node"]["supported"])
         self.assertTrue(report["checks"]["pptxgenjs"]["available"])
+        self.assertTrue(report["checks"]["pptxgenjs"]["supported"])
+        self.assertEqual(report["checks"]["pptxgenjs"]["detectedVersion"], "4.0.1")
+        self.assertEqual(report["checks"]["pptxgenjs"]["scope"], "task-dir")
         self.assertTrue(report["checks"]["libreoffice"]["available"])
 
     def test_probe_reports_missing_commands_without_writes(self) -> None:
         before = {path.relative_to(ROOT) for path in ROOT.rglob("*") if path.is_file()}
-        result, report = self.run_probe(path="")
+        result, report = self.run_probe(task_dir=ROOT, path="")
         after = {path.relative_to(ROOT) for path in ROOT.rglob("*") if path.is_file()}
         self.assertEqual(result.returncode, 1)
         self.assertFalse(report["ready"])
@@ -65,11 +78,95 @@ class PortableRuntimeTest(unittest.TestCase):
         self.assertIn("command:python3-or-python", report["missing"])
         self.assertEqual(before, after, "runtime probe must be read-only")
 
+    def test_probe_rejects_python_older_than_3_10(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="portable-python-") as raw:
+            binary_dir = Path(raw) / "bin"
+            binary_dir.mkdir()
+            for name, version in (
+                ("python3", "Python 3.9.18"),
+                ("libreoffice", "LibreOffice 24.2"),
+                ("pdftoppm", "pdftoppm version 24.02"),
+            ):
+                executable = binary_dir / name
+                executable.write_text(
+                    f"#!/bin/sh\nprintf '%s\\n' '{version}'\n",
+                    encoding="utf-8",
+                )
+                executable.chmod(0o755)
+
+            result, report = self.run_probe(
+                task_dir=ROOT,
+                path=str(binary_dir),
+                cwd=ROOT,
+            )
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertFalse(report["ready"])
+            self.assertTrue(report["checks"]["python"]["available"])
+            self.assertFalse(report["checks"]["python"]["supported"])
+            self.assertIn("python:>=3.10", report["missing"])
+
+    def test_probe_rejects_unsupported_pptxgenjs_version(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="portable-version-") as raw:
+            runtime_root = Path(raw) / "runtime"
+            task = runtime_root / "tasks" / "task-1"
+            package = runtime_root / "node_modules" / "pptxgenjs"
+            task.mkdir(parents=True)
+            package.mkdir(parents=True)
+            (package / "package.json").write_text(
+                json.dumps(
+                    {
+                        "name": "pptxgenjs",
+                        "version": "3.12.0",
+                        "main": "index.cjs",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (package / "index.cjs").write_text("module.exports = {};\n", encoding="utf-8")
+
+            result, report = self.run_probe(task_dir=task, cwd=task)
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertFalse(report["ready"])
+            self.assertTrue(report["checks"]["pptxgenjs"]["available"])
+            self.assertFalse(report["checks"]["pptxgenjs"]["supported"])
+            self.assertEqual(report["checks"]["pptxgenjs"]["detectedVersion"], "3.12.0")
+            self.assertIn("npm:pptxgenjs@4.0.x", report["missing"])
+
+    def test_template_rejects_unconfirmed_exif_orientation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="portable-exif-") as raw:
+            runtime_root = Path(raw) / "runtime"
+            task = runtime_root / "tasks" / "task-1"
+            task.mkdir(parents=True)
+            (runtime_root / "node_modules").symlink_to(
+                ROOT / "node_modules",
+                target_is_directory=True,
+            )
+            source = Image.new("RGB", (1200, 675), "white")
+            source.save(task / "source.png")
+            unsafe_build = TEMPLATE.read_text(encoding="utf-8").replace(
+                'sourceOrientation: "normalized"',
+                'sourceOrientation: "exif-active"',
+                1,
+            )
+            build_source = task / "build.mjs"
+            build_source.write_text(unsafe_build, encoding="utf-8")
+
+            result = subprocess.run(
+                [str(NODE), str(build_source)],
+                cwd=task,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("requires an orientation-normalized source image", result.stderr)
+            self.assertFalse((task / "editable.pptx").exists())
+
     def test_template_build_crop_arrows_overwrite_and_render(self) -> None:
-        build_root = ROOT / "build"
-        build_root.mkdir(exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix="portable-runtime-", dir=build_root) as raw:
-            task = Path(raw)
+        with tempfile.TemporaryDirectory(prefix="portable-runtime-") as raw:
+            runtime_root = Path(raw) / "runtime"
+            task = runtime_root / "tasks" / "task-1"
+            task.mkdir(parents=True)
             build_source = task / "build.mjs"
             shutil.copy2(TEMPLATE, build_source)
 
@@ -78,6 +175,25 @@ class PortableRuntimeTest(unittest.TestCase):
             draw.rectangle((850, 165, 1099, 344), fill="#d8edf8", outline="#225577", width=5)
             draw.line((860, 320, 925, 220, 990, 275, 1080, 185), fill="#d14444", width=8)
             source.save(task / "source.png")
+
+            unavailable, unavailable_report = self.run_probe(task_dir=task, cwd=task)
+            self.assertEqual(unavailable.returncode, 1)
+            self.assertFalse(unavailable_report["ready"])
+            self.assertIn("npm:pptxgenjs", unavailable_report["missing"])
+
+            host_node_modules = ROOT / "node_modules"
+            self.assertTrue(host_node_modules.is_dir(), "run npm ci before portable tests")
+            (runtime_root / "node_modules").symlink_to(
+                host_node_modules,
+                target_is_directory=True,
+            )
+            available, available_report = self.run_probe(task_dir=task, cwd=task)
+            self.assertEqual(available.returncode, 0, available.stdout + available.stderr)
+            self.assertTrue(available_report["ready"])
+            self.assertEqual(
+                available_report["checks"]["pptxgenjs"]["detectedVersion"],
+                "4.0.1",
+            )
 
             build = subprocess.run(
                 [str(NODE), str(build_source)],
@@ -91,6 +207,11 @@ class PortableRuntimeTest(unittest.TestCase):
             self.assertEqual(report["slides"], 1)
             pptx_path = task / "editable.pptx"
             self.assertTrue(pptx_path.is_file())
+            self.assertEqual(
+                {path.name for path in task.iterdir()},
+                {"source.png", "build.mjs", "editable.pptx"},
+                "host dependencies must stay outside the three-file delivery task",
+            )
 
             refused = subprocess.run(
                 [str(NODE), str(build_source)],
