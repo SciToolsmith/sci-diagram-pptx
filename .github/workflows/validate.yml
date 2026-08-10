@@ -139,6 +139,34 @@ jobs:
       - name: Run lightweight PPTX checker regressions
         run: python -B tests/test_check.py
 
+      - name: Validate reproducible case bundles
+        run: |
+          expected=(
+            ecosystem-services-assessment
+            global-innovation-industry-chain
+            l-plantarum-scs2-islet-cell-injury-mechanism
+            municipal-solid-waste-ghg-accounting-framework
+            osteoporosis-pedicle-screw-biomechanics
+            water-nitrogen-low-carbon-optimization
+          )
+          mapfile -t actual < <(
+            find examples/cases -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort
+          )
+          test "${actual[*]}" = "${expected[*]}"
+
+          for case_dir in examples/cases/*; do
+            mapfile -t files < <(
+              find "$case_dir" -mindepth 1 -maxdepth 1 -type f -printf '%f\n' | sort
+            )
+            test "${files[*]}" = "build.mjs editable.pptx source.png"
+            python -B skills/sci-diagram-pptx/scripts/check_pptx.py \
+              "$case_dir/editable.pptx" \
+              --source "$case_dir/source.png" \
+              --build-source "$case_dir/build.mjs" \
+              --require-single-slide \
+              --output "$RUNNER_TEMP/$(basename "$case_dir").json"
+          done
+
       - name: Smoke every documented CLI
         run: |
           for script in \
