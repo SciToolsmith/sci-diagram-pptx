@@ -16,64 +16,96 @@
 
 ## 真实案例
 
-预览均由可编辑重建页实际渲染。下载 PPTX 后，可以逐个修改文字、形状和连接线。
+预览均由对应的 `editable.pptx` 实际渲染。每个案例同时提供参考原图、单页可编辑 PPTX 与实际执行的 `build.mjs`。
 
 <table>
   <tr>
     <th width="50%">全球创新产业链研究框架</th>
-    <th width="50%">城市边缘区生态适应性机制图</th>
+    <th width="50%">城市固废管理与温室气体核算框架</th>
   </tr>
   <tr>
     <td align="center" valign="middle">
-      <a href="docs/cases/global-innovation-chain-framework.png">
-        <img src="docs/cases/global-innovation-chain-framework.png" width="86%" alt="全球创新产业链研究框架：纵向研究阶段、中央多层研究内容与右侧研究方法组成的可编辑科研框架图">
+      <a href="docs/cases/global-innovation-industry-chain.png">
+        <img src="docs/cases/global-innovation-industry-chain.png" width="74%" alt="全球创新产业链研究框架的可编辑 PowerPoint 渲染预览">
       </a>
     </td>
     <td align="center" valign="middle">
-      <a href="docs/cases/urban-fringe-ecological-adaptability-mechanism.png">
-        <img src="docs/cases/urban-fringe-ecological-adaptability-mechanism.png" width="81%" alt="城市边缘区生态适应性机制图：从提出问题、分析问题到宏观中观微观尺度决策的可编辑研究机制图">
+      <a href="docs/cases/municipal-solid-waste-ghg-accounting-framework.png">
+        <img src="docs/cases/municipal-solid-waste-ghg-accounting-framework.png" width="88%" alt="城市固废管理与温室气体核算框架的可编辑 PowerPoint 渲染预览">
       </a>
     </td>
   </tr>
   <tr>
     <td align="center">
-      <a href="docs/cases/global-innovation-chain-framework.png">查看大图</a> ·
-      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/global-innovation-chain-framework-editable.pptx">下载 PPTX</a>
+      <a href="examples/cases/global-innovation-industry-chain/source.png">参考原图</a> ·
+      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/global-innovation-industry-chain/editable.pptx">下载 PPTX</a> ·
+      <a href="examples/cases/global-innovation-industry-chain/build.mjs">构建源码</a>
     </td>
     <td align="center">
-      <a href="docs/cases/urban-fringe-ecological-adaptability-mechanism.png">查看大图</a> ·
-      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/urban-fringe-ecological-adaptability-mechanism-editable.pptx">下载 PPTX</a>
+      <a href="examples/cases/municipal-solid-waste-ghg-accounting-framework/source.png">参考原图</a> ·
+      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/municipal-solid-waste-ghg-accounting-framework/editable.pptx">下载 PPTX</a> ·
+      <a href="examples/cases/municipal-solid-waste-ghg-accounting-framework/build.mjs">构建源码</a>
     </td>
   </tr>
   <tr>
-    <th width="50%">载荷循环机制图</th>
-    <th width="50%">自适应 FIR 模态分解流程图</th>
+    <th width="50%"><em>L. plantarum</em> SCS2 小分子肽改善胰岛细胞损伤机制图</th>
+    <th width="50%">水氮互作与作物低碳优化流程图</th>
   </tr>
   <tr>
-    <td align="center" valign="top">
-      <a href="docs/cases/load-cycle-model.png">
-        <img src="docs/cases/load-cycle-model.png" width="100%" alt="载荷循环机制图：两个循环阶段之间通过实线与虚线连接的可编辑数学机制图">
+    <td align="center" valign="middle">
+      <a href="docs/cases/l-plantarum-scs2-islet-cell-injury-mechanism.png">
+        <img src="docs/cases/l-plantarum-scs2-islet-cell-injury-mechanism.png" width="100%" alt="L. plantarum SCS2 小分子肽改善胰岛细胞损伤机制图的可编辑 PowerPoint 渲染预览">
       </a>
     </td>
     <td align="center" valign="middle">
-      <a href="docs/cases/adaptive-fir-mode-decomposition.png">
-        <img src="docs/cases/adaptive-fir-mode-decomposition.png" width="76%" alt="自适应 FIR 模态分解流程图：包含判断分支、反馈回路与模式选择模块的可编辑算法流程图">
+      <a href="docs/cases/water-nitrogen-low-carbon-optimization.png">
+        <img src="docs/cases/water-nitrogen-low-carbon-optimization.png" width="100%" alt="水氮互作与作物低碳优化流程图的可编辑 PowerPoint 渲染预览">
       </a>
     </td>
   </tr>
   <tr>
     <td align="center">
-      <a href="docs/cases/load-cycle-model.png">查看大图</a> ·
-      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/load-cycle-model-editable.pptx">下载 PPTX</a>
+      <a href="examples/cases/l-plantarum-scs2-islet-cell-injury-mechanism/source.png">参考原图</a> ·
+      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/l-plantarum-scs2-islet-cell-injury-mechanism/editable.pptx">下载 PPTX</a> ·
+      <a href="examples/cases/l-plantarum-scs2-islet-cell-injury-mechanism/build.mjs">构建源码</a>
     </td>
     <td align="center">
-      <a href="docs/cases/adaptive-fir-mode-decomposition.png">查看大图</a> ·
-      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/adaptive-fir-mode-decomposition-flowchart-editable.pptx">下载 PPTX</a>
+      <a href="examples/cases/water-nitrogen-low-carbon-optimization/source.png">参考原图</a> ·
+      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/water-nitrogen-low-carbon-optimization/editable.pptx">下载 PPTX</a> ·
+      <a href="examples/cases/water-nitrogen-low-carbon-optimization/build.mjs">构建源码</a>
+    </td>
+  </tr>
+  <tr>
+    <th width="50%">生态系统服务评估流程图</th>
+    <th width="50%">骨质疏松椎弓根螺钉固定生物力学研究流程图</th>
+  </tr>
+  <tr>
+    <td align="center" valign="middle">
+      <a href="docs/cases/ecosystem-services-assessment.png">
+        <img src="docs/cases/ecosystem-services-assessment.png" width="100%" alt="生态系统服务评估流程图的可编辑 PowerPoint 渲染预览">
+      </a>
+    </td>
+    <td align="center" valign="middle">
+      <a href="docs/cases/osteoporosis-pedicle-screw-biomechanics.png">
+        <img src="docs/cases/osteoporosis-pedicle-screw-biomechanics.png" width="42%" alt="骨质疏松椎弓根螺钉固定生物力学研究流程图的可编辑 PowerPoint 渲染预览">
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <a href="examples/cases/ecosystem-services-assessment/source.png">参考原图</a> ·
+      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/ecosystem-services-assessment/editable.pptx">下载 PPTX</a> ·
+      <a href="examples/cases/ecosystem-services-assessment/build.mjs">构建源码</a>
+    </td>
+    <td align="center">
+      <a href="examples/cases/osteoporosis-pedicle-screw-biomechanics/source.png">参考原图</a> ·
+      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/osteoporosis-pedicle-screw-biomechanics/editable.pptx">下载 PPTX</a> ·
+      <a href="examples/cases/osteoporosis-pedicle-screw-biomechanics/build.mjs">构建源码</a>
     </td>
   </tr>
 </table>
 
-> 公开案例仅展示和下载单页可编辑 PPTX；实际任务交付中的用户原图与构建源码不随案例公开。
+六个案例均按 Skill 的标准三件套公开；其中局部照片、实验结果或模型截图以独立、可替换的图片对象保留，不用整页截图冒充编辑性。
 
 <a id="install"></a>
 
@@ -192,7 +224,7 @@ python3 tests/test_portable_runtime.py
 
 ## 许可与声明
 
-代码以 [Apache License 2.0](LICENSE) 发布。用户应确认输入素材的使用权，并在交付前核验文字、公式、箭头方向与科学含义。
+仓库代码以 [Apache License 2.0](LICENSE) 发布；示例参考图若包含第三方内容，其权利仍以原始来源为准，不因收录而获得额外授权。用户应确认输入素材的使用权，并在交付前核验文字、公式、箭头方向与科学含义。
 
 SciDiagram PPTX 是独立社区项目，与 OpenAI、Microsoft、Nature、Springer Nature 或任何期刊不存在官方隶属关系。
 
@@ -225,13 +257,15 @@ Preserve all labels, formulas, hierarchy, directions, and connections. Do not re
 
 Each reconstruction is returned as one folder containing the unchanged uploaded source, a single-slide native editable `editable.pptx`, and the actual `build.mjs` used to generate it. Crops taken from the upload are embedded as replaceable picture objects and do not add separate delivery files. Independently supplied high-resolution assets are included only when the build requires them.
 
-### Editable examples
+### Reproducible examples
 
-- [Global innovation-chain framework](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/global-innovation-chain-framework-editable.pptx)
-- [Urban-fringe ecological adaptability mechanism](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/urban-fringe-ecological-adaptability-mechanism-editable.pptx)
-- [Load-cycle mechanism](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/load-cycle-model-editable.pptx)
-- [Adaptive FIR decomposition flowchart](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/adaptive-fir-mode-decomposition-flowchart-editable.pptx)
+- [Global innovation industry-chain framework](examples/cases/global-innovation-industry-chain/)
+- [L. plantarum SCS2 islet-cell injury mechanism](examples/cases/l-plantarum-scs2-islet-cell-injury-mechanism/)
+- [Municipal solid-waste and GHG accounting framework](examples/cases/municipal-solid-waste-ghg-accounting-framework/)
+- [Water–nitrogen low-carbon crop optimization](examples/cases/water-nitrogen-low-carbon-optimization/)
+- [Ecosystem-services assessment workflow](examples/cases/ecosystem-services-assessment/)
+- [Osteoporosis pedicle-screw biomechanics workflow](examples/cases/osteoporosis-pedicle-screw-biomechanics/)
 
-Public examples expose only the single-slide editable PPTX. User source images and task build files are not published with them.
+Each public example contains the reference image, a single-slide editable PPTX, and the exact `build.mjs` used to generate it.
 
 </details>
