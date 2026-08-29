@@ -15,7 +15,7 @@
 </div>
 
 <p align="center">
-  <img src="docs/hero.svg" width="100%" alt="SciDiagram PPTX 从科研图示原图到可复现、原生可编辑 PowerPoint 的工作流">
+  <img src="docs/hero-cn.png" width="100%" alt="看懂原图、原生重建并检查真正重要内容的 SciDiagram PPTX 中文工作流">
 </p>
 
 > **它不做什么？** 不用整页截图冒充可编辑，不擅自重新设计论文图，也不为了像素微差无限返工。
@@ -32,11 +32,11 @@ SciDiagram PPTX 面向含义主要由**节点、标签、公式、层级和连�
 
 <p align="center">
   <a href="docs/cases/l-plantarum-scs2-islet-cell-injury-mechanism.png" title="01 · 生物医学机制图">
-    <img src="docs/cases/l-plantarum-scs2-islet-cell-injury-mechanism.png" width="48%" alt="01 · L. plantarum SCS2 小分子肽改善胰岛细胞损伤机制图">
+    <img src="docs/cases/l-plantarum-scs2-islet-cell-injury-mechanism.png" height="220" alt="01 · L. plantarum SCS2 小分子肽改善胰岛细胞损伤机制图">
   </a>
   &nbsp;
   <a href="docs/cases/ecosystem-services-assessment.png" title="02 · 生态系统服务评估流程">
-    <img src="docs/cases/ecosystem-services-assessment.png" width="48%" alt="02 · 生态系统服务评估流程图">
+    <img src="docs/cases/ecosystem-services-assessment.png" height="220" alt="02 · 生态系统服务评估流程图">
   </a>
 </p>
 
@@ -61,11 +61,11 @@ SciDiagram PPTX 面向含义主要由**节点、标签、公式、层级和连�
 
 <p align="center">
   <a href="docs/cases/municipal-solid-waste-ghg-accounting-framework.png" title="03 · 城市固废与温室气体核算框架">
-    <img src="docs/cases/municipal-solid-waste-ghg-accounting-framework.png" width="48%" alt="03 · 城市固废管理与温室气体核算框架">
+    <img src="docs/cases/municipal-solid-waste-ghg-accounting-framework.png" height="260" alt="03 · 城市固废管理与温室气体核算框架">
   </a>
   &nbsp;
   <a href="docs/cases/global-innovation-industry-chain.png" title="04 · 全球创新产业链研究框架">
-    <img src="docs/cases/global-innovation-industry-chain.png" width="48%" alt="04 · 全球创新产业链研究框架">
+    <img src="docs/cases/global-innovation-industry-chain.png" height="260" alt="04 · 全球创新产业链研究框架">
   </a>
 </p>
 
@@ -81,11 +81,11 @@ SciDiagram PPTX 面向含义主要由**节点、标签、公式、层级和连�
 
 <p align="center">
   <a href="docs/cases/water-nitrogen-low-carbon-optimization.png" title="05 · 水氮互作与作物低碳优化">
-    <img src="docs/cases/water-nitrogen-low-carbon-optimization.png" width="48%" alt="05 · 水氮互作与作物低碳优化流程图">
+    <img src="docs/cases/water-nitrogen-low-carbon-optimization.png" height="240" alt="05 · 水氮互作与作物低碳优化流程图">
   </a>
   &nbsp;
   <a href="docs/cases/osteoporosis-pedicle-screw-biomechanics.png" title="06 · 骨质疏松椎弓根螺钉生物力学">
-    <img src="docs/cases/osteoporosis-pedicle-screw-biomechanics.png" width="48%" alt="06 · 骨质疏松椎弓根螺钉固定生物力学研究流程图">
+    <img src="docs/cases/osteoporosis-pedicle-screw-biomechanics.png" height="240" alt="06 · 骨质疏松椎弓根螺钉固定生物力学研究流程图">
   </a>
 </p>
 
