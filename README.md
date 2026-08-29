@@ -28,120 +28,76 @@ SciDiagram PPTX 面向含义主要由**节点、标签、公式、层级和连�
 
 以下预览都来自仓库中对应的 `editable.pptx` 实际渲染，不是为了 README 重新制作的效果图。每个案例都公开参考原图、可编辑 PPTX 和实际执行的 `build.mjs`。
 
-### 01 · 生物医学机制图
-
-**L. plantarum SCS2 小分子肽改善胰岛细胞损伤机制**
-
-多研究模块、多级路径、中文术语与实验素材并存。结构节点和连接线保持原生可编辑，复杂实验素材作为可替换的局部图片对象保留。
+### 精选案例
 
 <p align="center">
-  <a href="docs/cases/l-plantarum-scs2-islet-cell-injury-mechanism.png">
-    <img src="docs/cases/l-plantarum-scs2-islet-cell-injury-mechanism.png" width="900" alt="L. plantarum SCS2 小分子肽改善胰岛细胞损伤机制图的可编辑 PPTX 渲染预览">
+  <a href="docs/cases/l-plantarum-scs2-islet-cell-injury-mechanism.png" title="01 · 生物医学机制图">
+    <img src="docs/cases/l-plantarum-scs2-islet-cell-injury-mechanism.png" width="48%" alt="01 · L. plantarum SCS2 小分子肽改善胰岛细胞损伤机制图">
+  </a>
+  &nbsp;
+  <a href="docs/cases/ecosystem-services-assessment.png" title="02 · 生态系统服务评估流程">
+    <img src="docs/cases/ecosystem-services-assessment.png" width="48%" alt="02 · 生态系统服务评估流程图">
   </a>
 </p>
 
-<p align="center">
-  <a href="examples/cases/l-plantarum-scs2-islet-cell-injury-mechanism/source.png"><strong>参考原图</strong></a>
-  ·
-  <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/l-plantarum-scs2-islet-cell-injury-mechanism/editable.pptx"><strong>下载 editable.pptx</strong></a>
-  ·
-  <a href="examples/cases/l-plantarum-scs2-islet-cell-injury-mechanism/build.mjs"><strong>查看 build.mjs</strong></a>
-</p>
+#### 01 · 生物医学机制图
 
----
+多研究模块、多级路径、中文术语与实验素材并存；原生节点和连接线保持可编辑，复杂实验素材保留为可替换的局部图片。
 
-### 02 · 生态系统服务评估流程
+[参考原图](examples/cases/l-plantarum-scs2-islet-cell-injury-mechanism/source.png) ·
+[下载 editable.pptx](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/l-plantarum-scs2-islet-cell-injury-mechanism/editable.pptx) ·
+[查看 build.mjs](examples/cases/l-plantarum-scs2-islet-cell-injury-mechanism/build.mjs)
 
-**供需平衡、生态敏感性与安全格局构建**
+#### 02 · 生态系统服务评估流程
 
-流程、公式、分支和方向共同承载含义。重建重点是保留四个步骤之间的层级、箭头方向和公式区域，而不是把复杂页面压成一张图片。
+流程、公式、分支和方向共同承载含义；重建保留步骤层级、箭头拓扑和公式区域，不把复杂页面压成一张图片。
 
-<p align="center">
-  <a href="docs/cases/ecosystem-services-assessment.png">
-    <img src="docs/cases/ecosystem-services-assessment.png" width="920" alt="生态系统服务评估流程图的可编辑 PPTX 渲染预览">
-  </a>
-</p>
-
-<p align="center">
-  <a href="examples/cases/ecosystem-services-assessment/source.png"><strong>参考原图</strong></a>
-  ·
-  <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/ecosystem-services-assessment/editable.pptx"><strong>下载 editable.pptx</strong></a>
-  ·
-  <a href="examples/cases/ecosystem-services-assessment/build.mjs"><strong>查看 build.mjs</strong></a>
-</p>
-
----
+[参考原图](examples/cases/ecosystem-services-assessment/source.png) ·
+[下载 editable.pptx](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/ecosystem-services-assessment/editable.pptx) ·
+[查看 build.mjs](examples/cases/ecosystem-services-assessment/build.mjs)
 
 <details>
 <summary><strong>展开另外 4 个可复现案例</strong></summary>
 
-### 03 · 城市固废与温室气体核算框架
-
-**多层处理系统、情景设置与生态效率评估**
-
-纵向层级、情景分支和跨区域连接较多。重建以容器关系、阅读顺序和连接方向为核心，同时保留用户后续修改参数和标签的空间。
-
 <p align="center">
-  <a href="docs/cases/municipal-solid-waste-ghg-accounting-framework.png">
-    <img src="docs/cases/municipal-solid-waste-ghg-accounting-framework.png" width="680" alt="城市固废管理与温室气体核算框架的可编辑 PPTX 渲染预览">
+  <a href="docs/cases/municipal-solid-waste-ghg-accounting-framework.png" title="03 · 城市固废与温室气体核算框架">
+    <img src="docs/cases/municipal-solid-waste-ghg-accounting-framework.png" width="48%" alt="03 · 城市固废管理与温室气体核算框架">
+  </a>
+  &nbsp;
+  <a href="docs/cases/global-innovation-industry-chain.png" title="04 · 全球创新产业链研究框架">
+    <img src="docs/cases/global-innovation-industry-chain.png" width="48%" alt="04 · 全球创新产业链研究框架">
   </a>
 </p>
 
-<p align="center">
-  <a href="examples/cases/municipal-solid-waste-ghg-accounting-framework/source.png"><strong>参考原图</strong></a>
-  ·
-  <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/municipal-solid-waste-ghg-accounting-framework/editable.pptx"><strong>下载 editable.pptx</strong></a>
-  ·
-  <a href="examples/cases/municipal-solid-waste-ghg-accounting-framework/build.mjs"><strong>查看 build.mjs</strong></a>
-</p>
+**03 · 城市固废与温室气体核算框架** —
+[原图](examples/cases/municipal-solid-waste-ghg-accounting-framework/source.png) ·
+[PPTX](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/municipal-solid-waste-ghg-accounting-framework/editable.pptx) ·
+[源码](examples/cases/municipal-solid-waste-ghg-accounting-framework/build.mjs)
 
-### 04 · 全球创新产业链研究框架
+**04 · 全球创新产业链研究框架** —
+[原图](examples/cases/global-innovation-industry-chain/source.png) ·
+[PPTX](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/global-innovation-industry-chain/editable.pptx) ·
+[源码](examples/cases/global-innovation-industry-chain/build.mjs)
 
 <p align="center">
-  <a href="docs/cases/global-innovation-industry-chain.png">
-    <img src="docs/cases/global-innovation-industry-chain.png" width="600" alt="全球创新产业链研究框架的可编辑 PPTX 渲染预览">
+  <a href="docs/cases/water-nitrogen-low-carbon-optimization.png" title="05 · 水氮互作与作物低碳优化">
+    <img src="docs/cases/water-nitrogen-low-carbon-optimization.png" width="48%" alt="05 · 水氮互作与作物低碳优化流程图">
+  </a>
+  &nbsp;
+  <a href="docs/cases/osteoporosis-pedicle-screw-biomechanics.png" title="06 · 骨质疏松椎弓根螺钉生物力学">
+    <img src="docs/cases/osteoporosis-pedicle-screw-biomechanics.png" width="48%" alt="06 · 骨质疏松椎弓根螺钉固定生物力学研究流程图">
   </a>
 </p>
 
-<p align="center">
-  <a href="examples/cases/global-innovation-industry-chain/source.png">参考原图</a>
-  ·
-  <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/global-innovation-industry-chain/editable.pptx">下载 editable.pptx</a>
-  ·
-  <a href="examples/cases/global-innovation-industry-chain/build.mjs">查看 build.mjs</a>
-</p>
+**05 · 水氮互作与作物低碳优化** —
+[原图](examples/cases/water-nitrogen-low-carbon-optimization/source.png) ·
+[PPTX](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/water-nitrogen-low-carbon-optimization/editable.pptx) ·
+[源码](examples/cases/water-nitrogen-low-carbon-optimization/build.mjs)
 
-### 05 · 水氮互作与作物低碳优化
-
-<p align="center">
-  <a href="docs/cases/water-nitrogen-low-carbon-optimization.png">
-    <img src="docs/cases/water-nitrogen-low-carbon-optimization.png" width="860" alt="水氮互作与作物低碳优化流程图的可编辑 PPTX 渲染预览">
-  </a>
-</p>
-
-<p align="center">
-  <a href="examples/cases/water-nitrogen-low-carbon-optimization/source.png">参考原图</a>
-  ·
-  <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/water-nitrogen-low-carbon-optimization/editable.pptx">下载 editable.pptx</a>
-  ·
-  <a href="examples/cases/water-nitrogen-low-carbon-optimization/build.mjs">查看 build.mjs</a>
-</p>
-
-### 06 · 骨质疏松椎弓根螺钉生物力学
-
-<p align="center">
-  <a href="docs/cases/osteoporosis-pedicle-screw-biomechanics.png">
-    <img src="docs/cases/osteoporosis-pedicle-screw-biomechanics.png" width="520" alt="骨质疏松椎弓根螺钉固定生物力学研究流程图的可编辑 PPTX 渲染预览">
-  </a>
-</p>
-
-<p align="center">
-  <a href="examples/cases/osteoporosis-pedicle-screw-biomechanics/source.png">参考原图</a>
-  ·
-  <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/osteoporosis-pedicle-screw-biomechanics/editable.pptx">下载 editable.pptx</a>
-  ·
-  <a href="examples/cases/osteoporosis-pedicle-screw-biomechanics/build.mjs">查看 build.mjs</a>
-</p>
+**06 · 骨质疏松椎弓根螺钉生物力学** —
+[原图](examples/cases/osteoporosis-pedicle-screw-biomechanics/source.png) ·
+[PPTX](https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/osteoporosis-pedicle-screw-biomechanics/editable.pptx) ·
+[源码](examples/cases/osteoporosis-pedicle-screw-biomechanics/build.mjs)
 
 </details>
 
