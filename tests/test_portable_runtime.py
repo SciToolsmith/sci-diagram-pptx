@@ -293,6 +293,8 @@ class PortableRuntimeTest(unittest.TestCase):
                     "--build-source",
                     str(build_source),
                     "--require-single-slide",
+                    "--pass-index",
+                    "1",
                     "--output",
                     str(check_report_path),
                 ],
@@ -309,6 +311,7 @@ class PortableRuntimeTest(unittest.TestCase):
             )
             check_report = json.loads(check_report_text)
             self.assertEqual(check_report["status"], "PASS")
+            self.assertEqual(check_report["decision"]["next_action"], "deliver")
             inset_check = next(
                 item for item in check_report["checks"]
                 if item["id"] == "source.raster_inset_inventory"

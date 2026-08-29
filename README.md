@@ -191,14 +191,16 @@ python3 -B tests/test_portable_runtime.py
 从上传原图裁出的局部照片或结果图直接嵌入 PPTX，不额外交付裁剪文件。只有用户另外提供、且构建实际依赖的高清或矢量素材，才增加可选 `assets/` 目录。
 
 ```text
-确认目标 → 梳理结构 → 原生重建 → 渲染 + 结构检查 → 若有阻断项，集中修复一次 → 停止并交付或报告
+确认目标 → 分配原生/局部图片所有权 → pass-01 → 渲染 + 结构检查 → 仅有阻断项时 pass-02 → 强制停止
 ```
 
 - **单页原生可编辑**：PPTX 只保留重建页，优先使用 PowerPoint 形状、文本框和连接线；照片、实验结果与复杂小图保留为独立、可替换的局部图片，不用整页截图冒充编辑性。
 - **方向与拓扑显式**：构建源码明确记录关系的起点、终点、方向、双向性和标签，不依据圆形或环形排布猜测循环。
+- **可见元素唯一所有权**：同一文字、箭头或小图只由原生对象或局部图片中的一方负责，避免重复覆盖和连续打补丁。
 - **可对照、可执行**：源图保持外置；`build.mjs` 是实际运行并生成该 PPTX 的源码，声明所用后端和版本，不包含本机绝对路径，也不依赖未交付的本地 helper。
 - **科学含义优先**：保护文字、公式、方向和拓扑；歧义可能改变含义时先询问用户。
-- **聚焦验证**：完成一次全图渲染和一次结构检查；只为明显阻断项集中修复一次，第二次检查后停止并报告，不无休止追逐像素微差。
+- **两轮硬上限**：pass-01 可在收集全部阻断项后集中修复一次；pass-02 后必须交付或报告。警告和像素微差不会自动开启新一轮。
+- **不重复验收未变字节**：已通过的 pass 逐字节移入交付位置后，不再重新构建、渲染或结构检查。
 - **跨平台务实**：`editable.pptx` 优先使用稳定的标准形状、独立文本框、明确字体和留白；兼容风险优先通过可移植结构、正常渲染和结构检查处理，不宣称不同应用间像素一致。
 
 [查看完整 Skill 工作流与质量规则](skills/sci-diagram-pptx/SKILL.md)
@@ -255,7 +257,7 @@ Preserve all labels, formulas, hierarchy, directions, and connections. Do not re
 
 ### Delivery
 
-Each reconstruction is returned as one folder containing the unchanged uploaded source, a single-slide native editable `editable.pptx`, and the actual `build.mjs` used to generate it. Crops taken from the upload are embedded as replaceable picture objects and do not add separate delivery files. Independently supplied high-resolution assets are included only when the build requires them.
+Each reconstruction is returned as one folder containing the unchanged uploaded source, a single-slide native editable `editable.pptx`, and the actual `build.mjs` used to generate it. Crops taken from the upload are embedded as replaceable picture objects and do not add separate delivery files. The default workflow allows the first authored pass plus at most one grouped correction; warnings alone never start another pass. Independently supplied high-resolution assets are included only when the build requires them.
 
 ### Reproducible examples
 

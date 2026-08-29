@@ -507,6 +507,7 @@ class CheckPptxTests(unittest.TestCase):
         *,
         require_single_slide: bool = False,
         inspect_slide: int = 1,
+        pass_index: int | None = None,
     ) -> dict[str, object]:
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
@@ -516,6 +517,7 @@ class CheckPptxTests(unittest.TestCase):
             source,
             require_single_slide=require_single_slide,
             inspect_slide=inspect_slide,
+            pass_index=pass_index,
         )
 
     def ids(self, report: dict[str, object]) -> set[str]:
@@ -541,6 +543,25 @@ class CheckPptxTests(unittest.TestCase):
         self.assertEqual(report["status"], "PASS", report["hard_failures"])
         self.assertEqual(self.check(report, "slide1.font_inventory")["status"], "PASS")
         self.assertEqual(self.check(report, "slide1.text_layout_inventory")["status"], "PASS")
+
+    def test_authored_pass_decision_is_bounded(self) -> None:
+        first_failure = self.report("full_image", pass_index=1)
+        self.assertEqual(first_failure["decision"]["next_action"], "repair_once")  # type: ignore[index]
+        self.assertTrue(first_failure["decision"]["another_authored_pass_allowed"])  # type: ignore[index]
+
+        second_failure = self.report("full_image", pass_index=2)
+        self.assertEqual(second_failure["decision"]["next_action"], "stop_with_blocker")  # type: ignore[index]
+        self.assertFalse(second_failure["decision"]["another_authored_pass_allowed"])  # type: ignore[index]
+
+        unbounded_inspection = self.report("full_image")
+        self.assertEqual(unbounded_inspection["decision"]["next_action"], "report_findings")  # type: ignore[index]
+
+    def test_warnings_do_not_authorize_another_pass(self) -> None:
+        report = self.report("custom_no_text", pass_index=1)
+        self.assertEqual(report["status"], "PASS")
+        self.assertTrue(report["warnings"])
+        self.assertEqual(report["decision"]["next_action"], "deliver")  # type: ignore[index]
+        self.assertFalse(report["decision"]["warnings_block_delivery"])  # type: ignore[index]
 
     def test_text_bearing_custom_geometry_without_text_rectangle_fails(self) -> None:
         for variant in ("custom_missing_rect", "custom_empty_rect"):
@@ -984,10 +1005,17 @@ class CheckPptxTests(unittest.TestCase):
     def test_parser_accepts_require_single_slide(self) -> None:
         args = check_pptx.build_parser().parse_args([
             "deck.pptx", "--source", "source.png", "--require-single-slide",
-            "--build-source", "build.mjs",
+            "--build-source", "build.mjs", "--pass-index", "2",
         ])
         self.assertTrue(args.require_single_slide)
         self.assertEqual(args.build_source, Path("build.mjs"))
+        self.assertEqual(args.pass_index, 2)
+
+    def test_api_rejects_an_authored_pass_beyond_two(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            deck, source = make_deck(Path(directory), "one_slide")
+            with self.assertRaisesRegex(ValueError, "pass_index"):
+                check_pptx.inspect_package(deck, source, pass_index=3)
 
     def test_parser_and_api_select_a_one_based_slide(self) -> None:
         args = check_pptx.build_parser().parse_args(["deck.pptx", "--slide", "2"])

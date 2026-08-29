@@ -1,6 +1,8 @@
 // Portable SciDiagram PPTX build template.
 // Runtime: Node.js 20+ and pptxgenjs 4.0.x.
 // Replace SOURCE, NODES, EDGES, and INSETS with the current source map.
+// Every visible element has exactly one owner: content retained inside an
+// INSET must not also appear in NODES or EDGES.
 // Run: node build.mjs [--overwrite]
 
 import fs from "node:fs";
@@ -90,6 +92,7 @@ const INSETS = [
     sourceBox: { x: 850, y: 165, w: 250, h: 180 },
     frameBox: { x: 850, y: 165, w: 250, h: 180 },
     role: "contextual",
+    owns: ["local experimental trace"],
     altText: "Replaceable local source inset",
     // Set only after confirming the file has no active EXIF orientation.
     sourceOrientation: "normalized",

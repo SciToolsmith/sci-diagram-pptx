@@ -1703,6 +1703,28 @@ def source_reference_check(
     return failures, warnings
 
 
+def execution_decision(
+    pass_index: int | None,
+    hard_failures: list[dict[str, object]],
+    warnings: list[dict[str, object]],
+) -> dict[str, object]:
+    """Return a bounded workflow decision without promoting warnings to blockers."""
+    if pass_index is None:
+        next_action = "report_findings" if hard_failures else "complete"
+    elif hard_failures:
+        next_action = "repair_once" if pass_index == 1 else "stop_with_blocker"
+    else:
+        next_action = "deliver"
+    return {
+        "pass_index": pass_index,
+        "next_action": next_action,
+        "hard_failure_count": len(hard_failures),
+        "warning_count": len(warnings),
+        "warnings_block_delivery": False,
+        "another_authored_pass_allowed": next_action == "repair_once",
+    }
+
+
 def inspect_package(
     pptx: Path,
     source: Path | None = None,
@@ -1710,10 +1732,15 @@ def inspect_package(
     require_single_slide: bool = False,
     build_source: Path | None = None,
     inspect_slide: int = 1,
+    pass_index: int | None = None,
 ) -> dict[str, object]:
     hard_failures: list[dict[str, object]] = []
     warnings: list[dict[str, object]] = []
     checks: list[dict[str, object]] = []
+    if pass_index is not None and (
+        isinstance(pass_index, bool) or pass_index not in (1, 2)
+    ):
+        raise ValueError("pass_index must be 1, 2, or None")
     pptx = pptx.expanduser().resolve()
     source = source.expanduser().resolve() if source else None
     build_source = build_source.expanduser().resolve() if build_source else None
@@ -2034,6 +2061,7 @@ def inspect_package(
     except (OSError, RuntimeError, NotImplementedError, EOFError, zipfile.BadZipFile) as exc:
         hard_failures.append(check_item("package.readable", "FAIL", str(exc)))
 
+    decision = execution_decision(pass_index, hard_failures, warnings)
     return {
         "kind": "sci-diagram-pptx-check",
         "status": "FAIL" if hard_failures else "PASS",
@@ -2041,6 +2069,7 @@ def inspect_package(
         "source": str(source) if source else None,
         "build_source": str(build_source) if build_source else None,
         "inspect_slide": inspect_slide,
+        "decision": decision,
         "hard_failures": hard_failures,
         "warnings": warnings,
         "checks": checks,
@@ -2057,7 +2086,12 @@ def write_report(report: dict[str, object], output: Path | None) -> None:
     temporary = target.with_name(target.name + ".tmp")
     temporary.write_text(rendered, encoding="utf-8")
     os.replace(temporary, target)
-    print(f"{report['status']}: {target}")
+    decision = report["decision"]
+    print(
+        f"{report['status']}: next_action={decision['next_action']} "
+        f"hard_failures={decision['hard_failure_count']} "
+        f"warnings={decision['warning_count']} report={target}"
+    )
 
 
 def positive_slide_number(value: str) -> int:
@@ -2098,6 +2132,16 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help="1-based slide number to deep-inspect (default: 1)",
     )
+    parser.add_argument(
+        "--pass-index",
+        type=int,
+        choices=(1, 2),
+        metavar="{1,2}",
+        help=(
+            "optional authored-pass index; pass 1 may authorize one grouped repair, "
+            "while pass 2 is terminal"
+        ),
+    )
     parser.add_argument("--output", type=Path, help="optional JSON report path")
     return parser
 
@@ -2110,6 +2154,7 @@ def main(argv: list[str] | None = None) -> int:
         require_single_slide=args.require_single_slide,
         build_source=args.build_source,
         inspect_slide=args.slide,
+        pass_index=args.pass_index,
     )
     write_report(report, args.output)
     return 0 if report["status"] == "PASS" else 1

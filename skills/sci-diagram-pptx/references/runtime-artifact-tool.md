@@ -20,6 +20,10 @@ SciDiagram overrides general deck-design defaults only where they conflict with 
 4. Keep nodes, directed edges, labels, and raster insets explicit; never infer a cycle or arrow direction from visual placement.
 5. Export and render according to the selected Reconstruction or Repair contract, then run the shared checker for the target slide or slides.
 
+Initialize the task workspace and resolve the runtime once. Do not repeat setup or an already successful availability probe in the same task unless the environment changes or a real build/export invocation fails.
+
+When Reconstruction needs two or more crops from the same source, verify one representative crop before the full build only if crop export for the exact installed Artifact Tool version has not already been established on the current host. Reuse that result for all insets and do not probe each crop.
+
 Use tested connector helpers with a documented source-to-target convention. In the current Artifact Tool exporter, `slide.shapes.connect(from, to, ...)` maps `head` to the source/start and `tail` to the target/end. Therefore a forward `from -> to` connector uses `tail`; a bidirectional connector uses `head` and `tail`. Treat edge labels as labels, not nodes. Create endpoint nodes first, then call `connect`; the tested exporter places resulting connectors behind their endpoints. Verify the named arrow ends in the focused render instead of reversing `from` and `to` to compensate visually.
 
 ## Scope

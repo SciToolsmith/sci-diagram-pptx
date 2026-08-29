@@ -24,4 +24,4 @@ Write the chosen Latin, East Asian, and complex-script font mappings explicitly 
 
 Do not depend on PowerPoint to resize text or geometry when the file opens. Emit stable final bounds and typography. If the authoring runtime requires AutoFit metadata, treat it only as a safety hint and verify that the exported layout is already correct without platform-specific reflow.
 
-During the normal review round, inspect dense regions for missing glyphs, fallback jumps, broken wrapping, clipped accents, and baseline drift. Treat small antialiasing, kerning, or font-shape differences as non-blocking cosmetic differences. Read [cross-platform-compatibility.md](cross-platform-compatibility.md) only when its risk trigger applies.
+During the normal review round, inspect dense regions for missing glyphs, fallback jumps, broken wrapping, clipped accents, and baseline drift. Treat small antialiasing, kerning, or font-shape differences as non-blocking cosmetic differences. Read [cross-platform-compatibility.md](cross-platform-compatibility.md) only for an explicit cross-platform request or a reproduced application-specific discrepancy.

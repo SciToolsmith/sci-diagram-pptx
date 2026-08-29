@@ -15,6 +15,8 @@ node "$SCI_DIAGRAM_SKILL_DIR/scripts/probe_runtime.mjs" \
 
 `--task-dir` must be the directory that will contain and execute `build.mjs`; it defaults to the current directory. The probe resolves the bare `pptxgenjs` import from that exact location and requires a detected 4.0.x release. A package visible only from the Skill repository or the caller's unrelated current directory does not make the task ready.
 
+Run this probe once per task directory. Do not repeat it after a successful result unless the directory, dependency tree, or runtime version changes or a real invocation fails.
+
 The route also requires Node.js 20+, Python 3.10+, LibreOffice/soffice, and `pdftoppm`. If a required dependency is missing, stop with the probe's JSON result. Do not install software during a user task and do not switch backend after creating `build.mjs`.
 
 ## Host deployment contract
@@ -59,6 +61,8 @@ For a photo, microscopy image, result thumbnail, model screenshot, or complex em
 ```
 
 PptxGenJS embeds the source image once and stores a visible `srcRect` crop on the picture. Do not create temporary crop files for delivery. Keep the default bundle as `source.*`, `editable.pptx`, and `build.mjs`. Add `assets/` only when the user supplied independent higher-resolution files required to rebuild the slide.
+
+The locked 4.0.1 template path is covered by the bundled crop test. For a normalized source using that exact route, do not add a task-specific crop probe.
 
 `srcRect` cropping is not reliable for a JPEG whose active EXIF orientation is not `1`: PptxGenJS preserves the metadata, while server renderers may crop the raw pixel matrix without applying the display orientation. Inspect orientation before declaring `sourceOrientation: "normalized"`. If the selected source has active EXIF rotation or mirroring, stop this portable route and request an orientation-normalized replacement source; do not transform displayed crop coordinates by guesswork, create an undeclared companion, or switch backend mid-task.
 

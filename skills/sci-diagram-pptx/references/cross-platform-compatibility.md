@@ -1,6 +1,6 @@
 # Cross-Platform Compatibility
 
-Read this file only for custom/freeform labels, fragile typography, complex formulas, a reproduced platform problem, or an explicit cross-platform request. The default goal remains one portable editable PPTX, not pixel identity across applications.
+Read this file only when the user explicitly requests cross-platform behavior or an application-specific discrepancy has been reproduced. Do not load it merely because an ordinary diagram contains formulas, dense text, or custom geometry. The default goal remains one portable editable PPTX, not pixel identity across applications.
 
 ## Remove the risky structure first
 
