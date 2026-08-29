@@ -9,8 +9,8 @@ Read this file only for custom/freeform labels, fragile typography, complex form
 - Do not rely on open-time AutoFit to choose a font size, resize a shape, or rewrap text.
 - Use structured baseline runs for simple scripts and proven Office Math for complex notation. Do not treat platform variants as a way to avoid resolving ambiguous scientific content.
 
-## Validate only the claimed environment
+## Keep the validation claim bounded
 
-Use one real PowerPoint open or export only when a risk trigger applies and PowerPoint is accessible. Check for a repair prompt, missing objects, material reflow or clipping, displaced custom/freeform labels, and broken formulas. Record the actual environment; never imply that another platform was tested.
+Resolve portability risk through stable construction and the normal render and structure checks. Treat a render as evidence for the selected renderer only, not proof of pixel identity across applications.
 
-Create platform-specific derivatives only when the blocker is reproduced in real PowerPoint on each affected environment, portable construction cannot remove it, and every derivative is generated from the same canonical object data and validated in its named environment. Otherwise deliver one portable file and disclose the validation scope.
+Do not create platform-specific derivatives by default. Deliver one portable file and disclose any known compatibility limitation without turning application-specific testing into a reconstruction requirement.

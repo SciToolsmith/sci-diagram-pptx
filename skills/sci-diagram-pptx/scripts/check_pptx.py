@@ -904,7 +904,7 @@ def slide1_compatibility_checks(
     if custom_geometry:
         warnings.append(check_item(
             "slide1.custom_geometry_inventory", "WARN",
-            "Slide 1 contains custom geometry that merits a native PowerPoint compatibility check",
+            "Slide 1 contains custom geometry; inspect the render for displaced or clipped labels",
             custom_geometry_count=len(custom_geometry),
             text_bearing_count=sum(bool(item["text_bearing"]) for item in custom_geometry),
             objects=custom_geometry[:25],
@@ -1055,7 +1055,7 @@ def slide1_compatibility_checks(
     if layout_risks:
         warnings.append(check_item(
             "slide1.text_layout_inventory", "WARN",
-            "Slide 1 uses wrap=none or an AutoFit mode that may reflow across PowerPoint environments",
+            "Slide 1 uses wrap=none or an AutoFit mode that may reflow across presentation renderers",
             **layout_evidence,
             objects=layout_risks[:25],
             truncated=max(0, len(layout_risks) - 25),

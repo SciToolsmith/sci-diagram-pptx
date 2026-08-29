@@ -154,10 +154,8 @@ If LibreOffice or `pdftoppm` is unavailable, use the host's existing renderer an
 
 Report meaningful content, topology, editability, and package discrepancies. Do not loop, silently repair, or hide uncertainty in invisible objects.
 
-## Compatibility check
+## Portability boundary
 
-Do not add a routine UI check to every task. When a real local PowerPoint installation is accessible, open or export the final authored candidate once only if it contains a compatibility risk—custom/freeform labels, Office Math, dense or mixed-script typography, true vertical or rotated text, a prior repair prompt—or the user explicitly asks for native or cross-platform validation. Check only for a repair prompt, missing content, material reflow or clipping, displaced labels, and broken formulas.
+Use portable construction plus the normal render and structure checks as the workflow boundary. A successful render shows only that the selected renderer opened and exported the file; it does not prove pixel identity across applications. Do not create Windows/macOS variants by default.
 
-LibreOffice rendering is a server smoke check, not proof of PowerPoint identity. State the actual validation environment and do not create Windows/macOS variants unless a material blocker is reproduced and each named result can be tested there.
-
-For Reconstruction or Repair, return a short note stating the authoring runtime, render and structure checks performed, any risk-triggered native PowerPoint check, and any material approximation or local raster inset. Inspection returns findings only.
+For Reconstruction or Repair, return a short note stating the authoring runtime, render and structure checks performed, and any material approximation or local raster inset. Inspection returns findings only.
