@@ -81,7 +81,10 @@ jobs:
           assert references == {
               "capability-matrix.md",
               "cross-platform-compatibility.md",
+              "inspection.md",
               "math-and-fonts.md",
+              "reconstruction.md",
+              "repair.md",
               "runtime-artifact-tool.md",
               "runtime-pptxgenjs.md",
           }, references

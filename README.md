@@ -1,115 +1,155 @@
 <div align="center">
 
-# SciDiagram PPTX｜科研图示原生复现
+# SciDiagram PPTX
 
-**把科研框架图、机制图和流程图，重建为真正可编辑的 PowerPoint 形状、文字、连接线与可替换局部图片。**
+### 科研图示原生复现
 
-研究框架 · 技术路线 · 机制模型 · 算法流程 · 学术图示
+把科研框架图、机制图和流程图，重建为真正可编辑的 PowerPoint 形状、文字、连接线与可替换局部图片。
 
-[![validation](https://img.shields.io/github/actions/workflow/status/SciToolsmith/sci-diagram-pptx/validate.yml?branch=main&style=flat-square&label=validation)](https://github.com/SciToolsmith/sci-diagram-pptx/actions/workflows/validate.yml) [![license](https://img.shields.io/badge/license-Apache--2.0-4C6FFF?style=flat-square)](LICENSE) [![Codex Skill](https://img.shields.io/badge/Codex-Agent%20Skill-111827?style=flat-square)](skills/sci-diagram-pptx/SKILL.md)
+[![validation](https://img.shields.io/github/actions/workflow/status/SciToolsmith/sci-diagram-pptx/validate.yml?branch=main&style=flat-square&label=validation)](https://github.com/SciToolsmith/sci-diagram-pptx/actions/workflows/validate.yml)
+[![license](https://img.shields.io/badge/license-Apache--2.0-4C6FFF?style=flat-square)](LICENSE)
+[![Codex Skill](https://img.shields.io/badge/Codex-Agent%20Skill-111827?style=flat-square)](skills/sci-diagram-pptx/SKILL.md)
 
-[案例](#gallery) · [安装](#install) · [使用](#usage) · [适用边界](#scope) · [English](#english)
+[查看真实案例](#cases) · [快速开始](#quick-start) · [交付内容](#delivery) · [适用边界](#scope) · [English](#english)
 
 </div>
 
-<a id="gallery"></a>
+<p align="center">
+  <img src="docs/hero.svg" width="100%" alt="SciDiagram PPTX 从科研图示原图到可复现、原生可编辑 PowerPoint 的工作流">
+</p>
+
+> **它不做什么？** 不用整页截图冒充可编辑，不擅自重新设计论文图，也不为了像素微差无限返工。
+
+SciDiagram PPTX 面向含义主要由**节点、标签、公式、层级和连接关系**承载的科研图示。它保留科学内容和拓扑，把照片、显微图、实验结果等复杂区域作为独立、可替换的局部图片对象，并交付实际执行的构建源码。
+
+<a id="cases"></a>
 
 ## 真实案例
 
-预览均由对应的 `editable.pptx` 实际渲染。每个案例同时提供参考原图、单页可编辑 PPTX 与实际执行的 `build.mjs`。
+以下预览都来自仓库中对应的 `editable.pptx` 实际渲染，不是为了 README 重新制作的效果图。每个案例都公开参考原图、可编辑 PPTX 和实际执行的 `build.mjs`。
 
-<table>
-  <tr>
-    <th width="50%">全球创新产业链研究框架</th>
-    <th width="50%">城市固废管理与温室气体核算框架</th>
-  </tr>
-  <tr>
-    <td align="center" valign="middle">
-      <a href="docs/cases/global-innovation-industry-chain.png">
-        <img src="docs/cases/global-innovation-industry-chain.png" width="74%" alt="全球创新产业链研究框架的可编辑 PowerPoint 渲染预览">
-      </a>
-    </td>
-    <td align="center" valign="middle">
-      <a href="docs/cases/municipal-solid-waste-ghg-accounting-framework.png">
-        <img src="docs/cases/municipal-solid-waste-ghg-accounting-framework.png" width="88%" alt="城市固废管理与温室气体核算框架的可编辑 PowerPoint 渲染预览">
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <a href="examples/cases/global-innovation-industry-chain/source.png">参考原图</a> ·
-      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/global-innovation-industry-chain/editable.pptx">下载 PPTX</a> ·
-      <a href="examples/cases/global-innovation-industry-chain/build.mjs">构建源码</a>
-    </td>
-    <td align="center">
-      <a href="examples/cases/municipal-solid-waste-ghg-accounting-framework/source.png">参考原图</a> ·
-      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/municipal-solid-waste-ghg-accounting-framework/editable.pptx">下载 PPTX</a> ·
-      <a href="examples/cases/municipal-solid-waste-ghg-accounting-framework/build.mjs">构建源码</a>
-    </td>
-  </tr>
-  <tr>
-    <th width="50%"><em>L. plantarum</em> SCS2 小分子肽改善胰岛细胞损伤机制图</th>
-    <th width="50%">水氮互作与作物低碳优化流程图</th>
-  </tr>
-  <tr>
-    <td align="center" valign="middle">
-      <a href="docs/cases/l-plantarum-scs2-islet-cell-injury-mechanism.png">
-        <img src="docs/cases/l-plantarum-scs2-islet-cell-injury-mechanism.png" width="100%" alt="L. plantarum SCS2 小分子肽改善胰岛细胞损伤机制图的可编辑 PowerPoint 渲染预览">
-      </a>
-    </td>
-    <td align="center" valign="middle">
-      <a href="docs/cases/water-nitrogen-low-carbon-optimization.png">
-        <img src="docs/cases/water-nitrogen-low-carbon-optimization.png" width="100%" alt="水氮互作与作物低碳优化流程图的可编辑 PowerPoint 渲染预览">
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <a href="examples/cases/l-plantarum-scs2-islet-cell-injury-mechanism/source.png">参考原图</a> ·
-      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/l-plantarum-scs2-islet-cell-injury-mechanism/editable.pptx">下载 PPTX</a> ·
-      <a href="examples/cases/l-plantarum-scs2-islet-cell-injury-mechanism/build.mjs">构建源码</a>
-    </td>
-    <td align="center">
-      <a href="examples/cases/water-nitrogen-low-carbon-optimization/source.png">参考原图</a> ·
-      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/water-nitrogen-low-carbon-optimization/editable.pptx">下载 PPTX</a> ·
-      <a href="examples/cases/water-nitrogen-low-carbon-optimization/build.mjs">构建源码</a>
-    </td>
-  </tr>
-  <tr>
-    <th width="50%">生态系统服务评估流程图</th>
-    <th width="50%">骨质疏松椎弓根螺钉固定生物力学研究流程图</th>
-  </tr>
-  <tr>
-    <td align="center" valign="middle">
-      <a href="docs/cases/ecosystem-services-assessment.png">
-        <img src="docs/cases/ecosystem-services-assessment.png" width="100%" alt="生态系统服务评估流程图的可编辑 PowerPoint 渲染预览">
-      </a>
-    </td>
-    <td align="center" valign="middle">
-      <a href="docs/cases/osteoporosis-pedicle-screw-biomechanics.png">
-        <img src="docs/cases/osteoporosis-pedicle-screw-biomechanics.png" width="42%" alt="骨质疏松椎弓根螺钉固定生物力学研究流程图的可编辑 PowerPoint 渲染预览">
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <a href="examples/cases/ecosystem-services-assessment/source.png">参考原图</a> ·
-      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/ecosystem-services-assessment/editable.pptx">下载 PPTX</a> ·
-      <a href="examples/cases/ecosystem-services-assessment/build.mjs">构建源码</a>
-    </td>
-    <td align="center">
-      <a href="examples/cases/osteoporosis-pedicle-screw-biomechanics/source.png">参考原图</a> ·
-      <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/osteoporosis-pedicle-screw-biomechanics/editable.pptx">下载 PPTX</a> ·
-      <a href="examples/cases/osteoporosis-pedicle-screw-biomechanics/build.mjs">构建源码</a>
-    </td>
-  </tr>
-</table>
+### 01 · 生物医学机制图
 
-六个案例均按 Skill 的标准三件套公开；其中局部照片、实验结果或模型截图以独立、可替换的图片对象保留，不用整页截图冒充编辑性。
+**L. plantarum SCS2 小分子肽改善胰岛细胞损伤机制**
 
-<a id="install"></a>
+多研究模块、多级路径、中文术语与实验素材并存。结构节点和连接线保持原生可编辑，复杂实验素材作为可替换的局部图片对象保留。
 
-## 安装
+<p align="center">
+  <a href="docs/cases/l-plantarum-scs2-islet-cell-injury-mechanism.png">
+    <img src="docs/cases/l-plantarum-scs2-islet-cell-injury-mechanism.png" width="900" alt="L. plantarum SCS2 小分子肽改善胰岛细胞损伤机制图的可编辑 PPTX 渲染预览">
+  </a>
+</p>
+
+<p align="center">
+  <a href="examples/cases/l-plantarum-scs2-islet-cell-injury-mechanism/source.png"><strong>参考原图</strong></a>
+  ·
+  <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/l-plantarum-scs2-islet-cell-injury-mechanism/editable.pptx"><strong>下载 editable.pptx</strong></a>
+  ·
+  <a href="examples/cases/l-plantarum-scs2-islet-cell-injury-mechanism/build.mjs"><strong>查看 build.mjs</strong></a>
+</p>
+
+---
+
+### 02 · 生态系统服务评估流程
+
+**供需平衡、生态敏感性与安全格局构建**
+
+流程、公式、分支和方向共同承载含义。重建重点是保留四个步骤之间的层级、箭头方向和公式区域，而不是把复杂页面压成一张图片。
+
+<p align="center">
+  <a href="docs/cases/ecosystem-services-assessment.png">
+    <img src="docs/cases/ecosystem-services-assessment.png" width="920" alt="生态系统服务评估流程图的可编辑 PPTX 渲染预览">
+  </a>
+</p>
+
+<p align="center">
+  <a href="examples/cases/ecosystem-services-assessment/source.png"><strong>参考原图</strong></a>
+  ·
+  <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/ecosystem-services-assessment/editable.pptx"><strong>下载 editable.pptx</strong></a>
+  ·
+  <a href="examples/cases/ecosystem-services-assessment/build.mjs"><strong>查看 build.mjs</strong></a>
+</p>
+
+---
+
+<details>
+<summary><strong>展开另外 4 个可复现案例</strong></summary>
+
+### 03 · 城市固废与温室气体核算框架
+
+**多层处理系统、情景设置与生态效率评估**
+
+纵向层级、情景分支和跨区域连接较多。重建以容器关系、阅读顺序和连接方向为核心，同时保留用户后续修改参数和标签的空间。
+
+<p align="center">
+  <a href="docs/cases/municipal-solid-waste-ghg-accounting-framework.png">
+    <img src="docs/cases/municipal-solid-waste-ghg-accounting-framework.png" width="680" alt="城市固废管理与温室气体核算框架的可编辑 PPTX 渲染预览">
+  </a>
+</p>
+
+<p align="center">
+  <a href="examples/cases/municipal-solid-waste-ghg-accounting-framework/source.png"><strong>参考原图</strong></a>
+  ·
+  <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/municipal-solid-waste-ghg-accounting-framework/editable.pptx"><strong>下载 editable.pptx</strong></a>
+  ·
+  <a href="examples/cases/municipal-solid-waste-ghg-accounting-framework/build.mjs"><strong>查看 build.mjs</strong></a>
+</p>
+
+### 04 · 全球创新产业链研究框架
+
+<p align="center">
+  <a href="docs/cases/global-innovation-industry-chain.png">
+    <img src="docs/cases/global-innovation-industry-chain.png" width="600" alt="全球创新产业链研究框架的可编辑 PPTX 渲染预览">
+  </a>
+</p>
+
+<p align="center">
+  <a href="examples/cases/global-innovation-industry-chain/source.png">参考原图</a>
+  ·
+  <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/global-innovation-industry-chain/editable.pptx">下载 editable.pptx</a>
+  ·
+  <a href="examples/cases/global-innovation-industry-chain/build.mjs">查看 build.mjs</a>
+</p>
+
+### 05 · 水氮互作与作物低碳优化
+
+<p align="center">
+  <a href="docs/cases/water-nitrogen-low-carbon-optimization.png">
+    <img src="docs/cases/water-nitrogen-low-carbon-optimization.png" width="860" alt="水氮互作与作物低碳优化流程图的可编辑 PPTX 渲染预览">
+  </a>
+</p>
+
+<p align="center">
+  <a href="examples/cases/water-nitrogen-low-carbon-optimization/source.png">参考原图</a>
+  ·
+  <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/water-nitrogen-low-carbon-optimization/editable.pptx">下载 editable.pptx</a>
+  ·
+  <a href="examples/cases/water-nitrogen-low-carbon-optimization/build.mjs">查看 build.mjs</a>
+</p>
+
+### 06 · 骨质疏松椎弓根螺钉生物力学
+
+<p align="center">
+  <a href="docs/cases/osteoporosis-pedicle-screw-biomechanics.png">
+    <img src="docs/cases/osteoporosis-pedicle-screw-biomechanics.png" width="520" alt="骨质疏松椎弓根螺钉固定生物力学研究流程图的可编辑 PPTX 渲染预览">
+  </a>
+</p>
+
+<p align="center">
+  <a href="examples/cases/osteoporosis-pedicle-screw-biomechanics/source.png">参考原图</a>
+  ·
+  <a href="https://github.com/SciToolsmith/sci-diagram-pptx/raw/main/examples/cases/osteoporosis-pedicle-screw-biomechanics/editable.pptx">下载 editable.pptx</a>
+  ·
+  <a href="examples/cases/osteoporosis-pedicle-screw-biomechanics/build.mjs">查看 build.mjs</a>
+</p>
+
+</details>
+
+<a id="quick-start"></a>
+
+## 快速开始
+
+### 1. 安装
 
 在 Codex 中输入：
 
@@ -118,33 +158,88 @@
 https://github.com/SciToolsmith/sci-diagram-pptx/tree/main/skills/sci-diagram-pptx
 ```
 
-安装后可用 `$sci-diagram-pptx` 显式调用。如果没有立即出现，请重启 Codex。
+安装后可用 `$sci-diagram-pptx` 显式调用。如果 Skill 没有立即出现，请重启 Codex。
 
-<a id="usage"></a>
-
-## 使用
-
-上传参考图后，直接提出目标：
+### 2. 上传图片并提出目标
 
 ```text
-$sci-diagram-pptx 把这张科研流程图忠实重建为原生可编辑 PPTX，
+$sci-diagram-pptx 把这张科研流程图忠实重建为原生可编辑 PPTX。
 保留文字、公式、层级和连线关系，不要重新设计。
 ```
 
-同一个 Skill 提供三条清晰路径：
+你也可以直接指定另外两种路径：
 
-| 目标 | 说法示例 | 结果 |
-| --- | --- | --- |
-| 重建 | “把这张图复刻成原生可编辑 PPTX” | 原图、单页 PPTX、实际执行的 `build.mjs` |
-| 修复 | “修复这个 PPTX 的第 3 页，其他页面不变” | 新 PPTX、`build.mjs` 与重新执行修复所需的最少输入依赖 |
-| 检查 | “只检查这个 PPTX 的第 3 页，不要修改” | 只返回诊断，不创建交付文件夹 |
+- **修复**：“修复这个 PPTX 的第 3 页，其他页面保持不变。”
+- **检查**：“只检查这个 PPTX 的第 3 页，不要修改。”
 
-多页文件应明确目标页；多个目标页会逐页深检，不默认把整个 deck 当作反复优化任务。Codex 桌面优先使用内置 Presentations / Artifact Tool；宿主配置完整依赖后，Linux 服务也可固定使用 PptxGenJS。一次任务只使用一个后端，不在生成途中切换。
+<a id="delivery"></a>
+
+## 交付内容
+
+常规重建默认返回一个职责清晰的文件夹：
+
+```text
+<图名>_editable/
+├── source.<原扩展名>  # 上传原图的逐字节副本
+├── editable.pptx       # 单页原生可编辑重建
+└── build.mjs           # 实际执行的构建源码
+```
+
+- **原生可编辑**：标题、标签、形状和连接线可在 PowerPoint 中继续修改。
+- **局部图片可替换**：照片、显微图、实验结果和复杂小图保留为独立图片对象，不使用整页截图。
+- **构建可追溯**：`build.mjs` 明确记录对象、方向、层级和运行环境。
+- **交付保持简洁**：内部渲染、检查报告、缓存和临时裁剪不会塞进用户文件夹。
+
+质量检查采用有边界的两轮流程：
+
+```text
+识别内容与拓扑
+        ↓
+pass-01：构建 → 渲染 + 结构检查
+        ↓
+仅在存在明确阻断项时，集中修正一次
+        ↓
+pass-02：终检 → 交付或说明剩余阻断
+```
+
+普通警告、抗锯齿、轻微字距和像素差异不会自动开启新一轮。默认验收边界是可移植构建、正常渲染和结构检查，不要求把本机 PowerPoint UI 打开作为额外步骤。
+
+<a id="scope"></a>
+
+## 适用边界
+
+**适合使用**
+
+- 研究框架、理论框架和技术路线
+- 科研流程、机制图、算法流程和系统结构
+- 含数学符号、公式或复杂层级的学术图示
+- 带少量照片、实验结果或模型截图的混合框架图
+- 已有科研图示 PPTX 的指定页面修复或检查
+
+**不适合使用**
+
+- 柱状图、折线图、散点图、热图等定量数据图
+- 以坐标轴、尺度和数据几何承载主要证据的图件
+- 需要从低清截图重新制造关键实验数据或曲线的任务
+- 普通商业演示、海报、组织架构或自由创意设计
+- 论文写作、翻译和统计分析本身
+
+一个简单判断：含义主要由**节点、标签与连接关系**承载，用本 Skill；含义主要由**坐标轴、尺度与数据**承载，用 [SciPlot](https://github.com/SciToolsmith/sci-plot)。
+
+## 设计原则
+
+- **忠实优先于重新设计**：保护文字、公式、方向、层级和科学含义。
+- **一个元素只有一个所有者**：同一文字或箭头只由原生对象或局部图片中的一方负责。
+- **拓扑显式**：构建源码记录关系起点、终点、方向、双向性和标签，不根据视觉排布猜测循环。
+- **务实处理不确定性**：读不清且可能改变含义时才询问；外观小差异采用合理近似。
+- **拒绝无限返工**：首轮后最多进行一次集中修正，第二轮必须收口。
+
+[查看完整 Skill 工作流与质量规则](skills/sci-diagram-pptx/SKILL.md)
 
 <details>
 <summary><strong>Linux / PptxGenJS 宿主配置</strong></summary>
 
-便携路线要求 Node.js 20+、PptxGenJS 4.0.x、Python 3.10+、LibreOffice 和 `pdftoppm`。当前阶段用于标准形状、文字、连线和局部图片的 Reconstruction，不宣称能导入并保留现有多页 PPTX。以下命令以 Ubuntu/Debian 和仓库根目录为例：
+便携路线要求 Node.js 20+、PptxGenJS 4.0.x、Python 3.10+、LibreOffice 和 `pdftoppm`。当前用于标准形状、文字、连接线和局部图片的 Reconstruction，不宣称能够导入并保留现有多页 PPTX。
 
 ```bash
 sudo apt-get update
@@ -158,75 +253,28 @@ SCI_DIAGRAM_RUNTIME=pptxgenjs \
 python3 -B tests/test_portable_runtime.py
 ```
 
-`$skill-installer` 只安装 Skill，不替宿主安装上述系统或 Node 依赖。生产宿主应在用户任务开始前固定依赖，并把实际任务目录传给 `--task-dir` 复检；把生成的 `build.mjs` 视为不受信任的任务代码，在隔离目录中关闭网络并限制进程、时间、内存和文件系统访问，不向任务暴露服务凭据。
+`$skill-installer` 只安装 Skill，不替宿主安装系统或 Node 依赖。生产宿主应提前固定依赖，并把生成的 `build.mjs` 视为不受信任的任务代码，在隔离环境中限制网络、进程、时间、内存和文件系统访问。
 
 </details>
-
-<a id="scope"></a>
-
-## 适用边界
-
-| 适合 | 不适合 |
-| --- | --- |
-| 研究框架图、理论框架与技术路线 | 柱状图、折线图、散点图、热图等数据图 |
-| 科研流程图、机制图与算法流程图 | 以照片、显微图或实验图像本身为主要交付内容 |
-| 科研系统结构图、概念模型 | 普通商业组织图、海报或自由创意设计 |
-| 含数学符号或公式的学术图示 | 以坐标轴、尺度和数据几何承载证据的图件 |
-| 带局部照片、实验结果或模型截图的混合框架图 | 需要凭低清截图重造关键数据、曲线或实验细节的任务 |
-| 已有科研图示 PPTX 的结构修复 | 翻译、论文写作或统计分析本身 |
-
-一个简单判断：含义主要由**节点、标签与连接关系**承载，用本 Skill；含义主要由**坐标轴、尺度与数据**承载，用 [SciPlot](https://github.com/SciToolsmith/sci-plot)。
-
-## 交付原则
-
-常规重建交付一个职责清晰的文件夹：
-
-```text
-<图名>_editable/
-├── source.<原扩展名>  # 用户上传原图的逐字节副本
-├── editable.pptx       # 单页原生可编辑重建
-└── build.mjs           # 实际执行的构建源码
-```
-
-从上传原图裁出的局部照片或结果图直接嵌入 PPTX，不额外交付裁剪文件。只有用户另外提供、且构建实际依赖的高清或矢量素材，才增加可选 `assets/` 目录。
-
-```text
-确认目标 → 分配原生/局部图片所有权 → pass-01 → 渲染 + 结构检查 → 仅有阻断项时 pass-02 → 强制停止
-```
-
-- **单页原生可编辑**：PPTX 只保留重建页，优先使用 PowerPoint 形状、文本框和连接线；照片、实验结果与复杂小图保留为独立、可替换的局部图片，不用整页截图冒充编辑性。
-- **方向与拓扑显式**：构建源码明确记录关系的起点、终点、方向、双向性和标签，不依据圆形或环形排布猜测循环。
-- **可见元素唯一所有权**：同一文字、箭头或小图只由原生对象或局部图片中的一方负责，避免重复覆盖和连续打补丁。
-- **可对照、可执行**：源图保持外置；`build.mjs` 是实际运行并生成该 PPTX 的源码，声明所用后端和版本，不包含本机绝对路径，也不依赖未交付的本地 helper。
-- **科学含义优先**：保护文字、公式、方向和拓扑；歧义可能改变含义时先询问用户。
-- **两轮硬上限**：pass-01 可在收集全部阻断项后集中修复一次；pass-02 后必须交付或报告。警告和像素微差不会自动开启新一轮。
-- **不重复验收未变字节**：已通过的 pass 逐字节移入交付位置后，不再重新构建、渲染或结构检查。
-- **跨平台务实**：`editable.pptx` 优先使用稳定的标准形状、独立文本框、明确字体和留白；兼容风险优先通过可移植结构、正常渲染和结构检查处理，不宣称不同应用间像素一致。
-
-[查看完整 Skill 工作流与质量规则](skills/sci-diagram-pptx/SKILL.md)
 
 <details>
 <summary><strong>开发与验证</strong></summary>
 
-仓库 CI 检查 Skill 元数据、脚本和确定性结构规则；它不能替代科学含义核验，也不声称不同 PowerPoint 渲染器完全等价。
-
 ```bash
 python3 -m pip install -r requirements-ci.txt
-python3 tests/test_panel_crop.py
-python3 tests/test_check.py
+python3 -B tests/test_panel_crop.py
+python3 -B tests/test_check.py
 npm ci --ignore-scripts --no-audit --no-fund
-python3 tests/test_portable_runtime.py
+python3 -B tests/test_portable_runtime.py
 ```
 
-最后两条命令验证 PptxGenJS 合成构建、运行时探测和 LibreOffice 渲染；需要先安装上文列出的系统依赖。LibreOffice 通过只代表服务器可打开与导出，不等于所有 PowerPoint 平台像素一致。
-
-欢迎通过 Issues 或 Pull Requests 贡献修复。请勿提交来源不明的论文截图、第三方素材或带本机隐私信息的文件。
+CI 检查 Skill 元数据、脚本、示例包和确定性结构规则。LibreOffice 通过只代表服务器能够打开与导出，不代表所有 PowerPoint 平台像素一致。
 
 </details>
 
 ## 许可与声明
 
-仓库代码以 [Apache License 2.0](LICENSE) 发布；示例参考图若包含第三方内容，其权利仍以原始来源为准，不因收录而获得额外授权。用户应确认输入素材的使用权，并在交付前核验文字、公式、箭头方向与科学含义。
+仓库代码以 [Apache License 2.0](LICENSE) 发布。示例参考图若包含第三方内容，其权利仍以原始来源为准；用户应确认输入素材的使用权，并在交付前核验文字、公式、箭头方向与科学含义。
 
 SciDiagram PPTX 是独立社区项目，与 OpenAI、Microsoft、Nature、Springer Nature 或任何期刊不存在官方隶属关系。
 
@@ -237,9 +285,9 @@ SciDiagram PPTX 是独立社区项目，与 OpenAI、Microsoft、Nature、Spring
 
 ### What it does
 
-SciDiagram PPTX reconstructs scientific frameworks, mechanism diagrams, and research flowcharts as native editable PowerPoint shapes, text, connectors, and replaceable local image insets. It can also repair named slides in an existing PPTX or inspect named slides without modification. It preserves content and explicit edge direction instead of redesigning the source or hiding it behind a full-slide bitmap.
+SciDiagram PPTX reconstructs scientific frameworks, mechanism diagrams, and research flowcharts as native editable PowerPoint shapes, text, connectors, and replaceable local image insets. It preserves content and explicit topology instead of redesigning the source or hiding it behind a full-slide bitmap.
 
-For charts whose evidence is encoded by axes, scales, and data-driven geometry, use [SciPlot](https://github.com/SciToolsmith/sci-plot) instead.
+For charts whose evidence is encoded by axes, scales, and data-driven geometry, use [SciPlot](https://github.com/SciToolsmith/sci-plot).
 
 ### Install
 
@@ -257,17 +305,15 @@ Preserve all labels, formulas, hierarchy, directions, and connections. Do not re
 
 ### Delivery
 
-Each reconstruction is returned as one folder containing the unchanged uploaded source, a single-slide native editable `editable.pptx`, and the actual `build.mjs` used to generate it. Crops taken from the upload are embedded as replaceable picture objects and do not add separate delivery files. The default workflow allows the first authored pass plus at most one grouped correction; warnings alone never start another pass. Independently supplied high-resolution assets are included only when the build requires them.
+Each reconstruction returns the unchanged source, a single-slide native editable `editable.pptx`, and the executed `build.mjs`. The first authored pass may be followed by at most one grouped correction; warnings alone do not trigger another pass.
 
 ### Reproducible examples
 
-- [Global innovation industry-chain framework](examples/cases/global-innovation-industry-chain/)
-- [L. plantarum SCS2 islet-cell injury mechanism](examples/cases/l-plantarum-scs2-islet-cell-injury-mechanism/)
-- [Municipal solid-waste and GHG accounting framework](examples/cases/municipal-solid-waste-ghg-accounting-framework/)
-- [Water–nitrogen low-carbon crop optimization](examples/cases/water-nitrogen-low-carbon-optimization/)
+- [Biomedical mechanism diagram](examples/cases/l-plantarum-scs2-islet-cell-injury-mechanism/)
 - [Ecosystem-services assessment workflow](examples/cases/ecosystem-services-assessment/)
+- [Municipal solid-waste and GHG accounting framework](examples/cases/municipal-solid-waste-ghg-accounting-framework/)
+- [Global innovation industry-chain framework](examples/cases/global-innovation-industry-chain/)
+- [Water–nitrogen low-carbon crop optimization](examples/cases/water-nitrogen-low-carbon-optimization/)
 - [Osteoporosis pedicle-screw biomechanics workflow](examples/cases/osteoporosis-pedicle-screw-biomechanics/)
-
-Each public example contains the reference image, a single-slide editable PPTX, and the exact `build.mjs` used to generate it.
 
 </details>
